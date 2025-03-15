@@ -18,12 +18,34 @@ def get_problem_images():
     unit1_path = os.path.join('AP_Statistics_Course', 'Unit 1- Exploring One-Variable Data')
     image_files = []
     
+    # Connect to database to get stored metadata
+    conn = get_db_connection()
+    problem_metadata = {}
+    
+    # Get all problems from the database
+    problems = conn.execute('SELECT * FROM problems').fetchall()
+    
+    # Create a dictionary mapping problem_number to its metadata
+    for problem in problems:
+        problem_metadata[problem['problem_number']] = {
+            'year': problem['year'],
+            'description': problem['description'],
+            'difficulty': problem['difficulty'],
+            'source': problem['source']
+        }
+    
+    conn.close()
+    
     # Get all PNG files in the Unit1 folder
     for file in glob.glob(os.path.join(unit1_path, '*.png')):
         filename = os.path.basename(file)
+        
+        # Check if we have stored metadata for this problem
+        stored_metadata = problem_metadata.get(filename, {})
+        
         # Extract problem info from filename
         year_match = re.search(r'(\d{4})', filename)
-        year = year_match.group(1) if year_match else "Unknown"
+        year = stored_metadata.get('year') or (year_match.group(1) if year_match else "Unknown")
         
         # Determine if it's MCQ or FRQ
         if 'MCQ' in filename:
@@ -47,6 +69,9 @@ def get_problem_images():
             # Group identifier: year_FRQ_number (e.g., 2019_FRQ_1)
             group_id = f"{year}_FRQ_{problem_num}"
         
+        # Use stored description if available
+        description = stored_metadata.get('description', f"Problem from {year} AP Statistics Exam")
+        
         image_files.append({
             'filename': filename,
             'path': file,
@@ -55,6 +80,7 @@ def get_problem_images():
             'number': problem_num,
             'part': part_num,
             'group_id': group_id,
+            'description': description,
             'display_name': f"{year} {problem_type} #{problem_num}" + (f" (Part {part_num})" if part_match else "")
         })
     
@@ -103,25 +129,41 @@ def index():
     # Connect to database to check which problems have topics assigned
     conn = get_db_connection()
     
-    # Get all problems with their topic counts
-    problem_topics = {}
+    # Get all problems with their topic counts and metadata
+    problem_data = {}
     problems_data = conn.execute('''
-        SELECT p.problem_number, COUNT(pt.id) as topic_count
+        SELECT p.*, COUNT(pt.id) as topic_count
         FROM problems p
         LEFT JOIN problem_topics pt ON p.problem_id = pt.problem_id
         GROUP BY p.problem_id
     ''').fetchall()
     
-    # Create a dictionary mapping problem_number to topic count
+    # Create a dictionary mapping problem_number to its data
     for problem in problems_data:
-        problem_topics[problem['problem_number']] = problem['topic_count']
+        problem_data[problem['problem_number']] = {
+            'topic_count': problem['topic_count'],
+            'year': problem['year'],
+            'description': problem['description'],
+            'difficulty': problem['difficulty'],
+            'source': problem['source']
+        }
     
     conn.close()
     
-    # Add topic count to each standalone problem
+    # Add topic count and metadata to each standalone problem
     for problem in standalone_problems:
-        problem['has_topics'] = problem_topics.get(problem['filename'], 0) > 0
-        problem['topic_count'] = problem_topics.get(problem['filename'], 0)
+        data = problem_data.get(problem['filename'], {})
+        problem['has_topics'] = data.get('topic_count', 0) > 0
+        problem['topic_count'] = data.get('topic_count', 0)
+        
+        # Use database values for display if available
+        if problem['filename'] in problem_data:
+            problem['year'] = data.get('year', problem['year'])
+            problem['description'] = data.get('description', problem['description'])
+            
+            # Update display name with database year if available
+            if data.get('year'):
+                problem['display_name'] = f"{data['year']} {problem['type']} #{problem['number']}" + (f" (Part {problem['part']})" if problem['part'] != "1" else "")
     
     # Add topic information to grouped problems
     for group_id, group in grouped_problems.items():
@@ -129,8 +171,17 @@ def index():
         group_has_topics = False
         total_topic_count = 0
         
+        # Use the year from the database for the first part if available
+        first_part = group['parts'][0] if group['parts'] else None
+        if first_part and first_part['filename'] in problem_data:
+            db_year = problem_data[first_part['filename']].get('year')
+            if db_year:
+                group['year'] = db_year
+                group['display_name'] = f"{db_year} {group['type']} #{group['number']}"
+        
         for part in group['parts']:
-            part_topic_count = problem_topics.get(part['filename'], 0)
+            data = problem_data.get(part['filename'], {})
+            part_topic_count = data.get('topic_count', 0)
             if part_topic_count > 0:
                 group_has_topics = True
                 total_topic_count += part_topic_count
@@ -138,6 +189,11 @@ def index():
             # Also add to individual parts
             part['has_topics'] = part_topic_count > 0
             part['topic_count'] = part_topic_count
+            
+            # Use database values for display if available
+            if part['filename'] in problem_data:
+                part['year'] = data.get('year', part['year'])
+                part['description'] = data.get('description', part['description'])
         
         group['has_topics'] = group_has_topics
         group['topic_count'] = total_topic_count
@@ -289,6 +345,9 @@ def update_problem_metadata():
     description = request.form['description']
     difficulty = request.form.get('difficulty', None)
     
+    if difficulty == '':
+        difficulty = None
+    
     conn = get_db_connection()
     
     # Get the problem
@@ -301,13 +360,38 @@ def update_problem_metadata():
     # Update the problem metadata
     conn.execute('''
         UPDATE problems 
-        SET year = ?, description = ?, difficulty = ?
+        SET year = ?, description = ?, difficulty = ?, source = ?
         WHERE problem_id = ?
-    ''', (year, description, difficulty, problem_id))
+    ''', (year, description, difficulty, f"Problem from {year} AP Statistics {problem_type}", problem_id))
     
     conn.commit()
-    flash('Problem metadata updated successfully!')
     
+    # If this is part of an FRQ group, update all parts with the same year
+    if 'FRQ' in problem['problem_number'] or 'Frq' in problem['problem_number']:
+        # Extract FRQ number
+        num_match = re.search(r'(?:FRQ|Frq)(\d+)', problem['problem_number'])
+        
+        if num_match:
+            frq_num = num_match.group(1)
+            
+            # Find all parts of this FRQ
+            part_pattern = f"%(?:FRQ|Frq){frq_num}%"
+            group_parts = conn.execute('''
+                SELECT * FROM problems 
+                WHERE problem_number LIKE ? AND problem_id != ?
+            ''', (part_pattern, problem_id)).fetchall()
+            
+            # Update year for all parts
+            for part in group_parts:
+                conn.execute('''
+                    UPDATE problems 
+                    SET year = ?, source = ?
+                    WHERE problem_id = ?
+                ''', (year, f"Problem from {year} AP Statistics {problem_type}", part['problem_id']))
+            
+            conn.commit()
+    
+    flash('Problem metadata updated successfully!')
     conn.close()
     
     return redirect(url_for('problem_detail', filename=problem['problem_number']))
