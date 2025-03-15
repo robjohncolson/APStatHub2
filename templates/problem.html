@@ -1,0 +1,161 @@
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Problem: {{ display_name }}</title>
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+            <style>
+                .problem-image { max-width: 100%; height: auto; border: 1px solid #ddd; margin-bottom: 20px; }
+                .no-topics-alert { background-color: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+                .group-part { border: 1px solid #ddd; margin-bottom: 10px; padding: 10px; border-radius: 5px; }
+                .group-part img { max-width: 100%; height: auto; }
+            </style>
+        </head>
+        <body>
+            <div class="container mt-4">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+                        <li class="breadcrumb-item active">{{ display_name }}</li>
+                    </ol>
+                </nav>
+                
+                {% for flash_message in get_flashed_messages() %}
+                <div class="alert alert-info">{{ flash_message }}</div>
+                {% endfor %}
+                
+                <h1>{{ display_name }}</h1>
+                
+                {% if is_frq and group_id %}
+                <div class="alert alert-info">
+                    <strong>Note:</strong> This is part of a Free Response Question group. Topic assignments can be applied to all parts of this FRQ.
+                </div>
+                {% endif %}
+                
+                <div class="row">
+                    <div class="col-md-8">
+                        <img src="{{ url_for('serve_image', filename=filename) }}" class="problem-image" alt="{{ display_name }}">
+                        
+                        {% if is_frq and group_parts %}
+                        <h3 class="mt-4">Other Parts of This FRQ</h3>
+                        <div class="row">
+                            {% for part in group_parts %}
+                            <div class="col-md-6 mb-3">
+                                <div class="group-part">
+                                    <h5>{{ part.problem_number }}</h5>
+                                    <a href="{{ url_for('problem_detail', filename=part.problem_number) }}">
+                                        <img src="{{ url_for('serve_image', filename=part.problem_number) }}" alt="{{ part.problem_number }}">
+                                    </a>
+                                    <div class="mt-2">
+                                        <a href="{{ url_for('problem_detail', filename=part.problem_number) }}" class="btn btn-sm btn-primary">View This Part</a>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card mb-4">
+                            <div class="card-header">Problem Details</div>
+                            <div class="card-body">
+                                <p><strong>Source:</strong> {{ problem.source }}</p>
+                                {% if problem.year %}
+                                <p><strong>Year:</strong> {{ problem.year }}</p>
+                                {% endif %}
+                                {% if problem.difficulty %}
+                                <p><strong>Difficulty:</strong> {{ problem.difficulty }}/5</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header">Add Topic to This Problem</div>
+                            <div class="card-body">
+                                <form method="post" action="{{ url_for('add_problem_topic') }}">
+                                    <input type="hidden" name="problem_id" value="{{ problem.problem_id }}">
+                                    
+                                    <div class="mb-3">
+                                        <label for="topic_id" class="form-label">Select Topic</label>
+                                        <select class="form-select" id="topic_id" name="topic_id" required>
+                                            <option value="">-- Select a Topic --</option>
+                                            {% for topic in all_topics %}
+                                            <option value="{{ topic.topic_id }}">
+                                                {{ topic.topic_number }} {{ topic.topic_name }} (Unit {{ topic.unit_number }})
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="relevance_score" class="form-label">Relevance Score (1-5)</label>
+                                        <input type="number" class="form-control" id="relevance_score" name="relevance_score" min="1" max="5" value="5">
+                                        <div class="form-text">How relevant is this topic to the problem?</div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="notes" class="form-label">Notes</label>
+                                        <textarea class="form-control" id="notes" name="notes" rows="2"></textarea>
+                                    </div>
+                                    
+                                    {% if is_frq and group_id %}
+                                    <div class="mb-3 form-check">
+                                        <input type="checkbox" class="form-check-input" id="apply_to_group" name="apply_to_group" checked>
+                                        <label class="form-check-label" for="apply_to_group">Apply to all parts of this FRQ</label>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <button type="submit" class="btn btn-primary">Add Topic</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <h2 class="mt-4">Related Topics</h2>
+                {% if topics %}
+                <div class="list-group">
+                    {% for topic in topics %}
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">
+                                <a href="{{ url_for('topic_detail', topic_id=topic.topic_id) }}">
+                                    {{ topic.topic_number }} {{ topic.topic_name }}
+                                </a>
+                            </h5>
+                            <small>Relevance: {{ topic.relevance_score }}/5</small>
+                        </div>
+                        <p class="mb-1">Unit {{ topic.unit_number }}: {{ topic.unit_name }}</p>
+                        {% if topic.notes %}
+                        <small>Notes: {{ topic.notes }}</small>
+                        {% endif %}
+                        <form method="post" action="{{ url_for('remove_problem_topic') }}" class="mt-2">
+                            <input type="hidden" name="problem_id" value="{{ problem.problem_id }}">
+                            <input type="hidden" name="topic_id" value="{{ topic.topic_id }}">
+                            
+                            {% if is_frq and group_id %}
+                            <div class="form-check mb-2">
+                                <input type="checkbox" class="form-check-input" id="remove_from_group" name="remove_from_group" checked>
+                                <label class="form-check-label" for="remove_from_group">Remove from all parts of this FRQ</label>
+                            </div>
+                            {% endif %}
+                            
+                            <button type="submit" class="btn btn-sm btn-danger">Remove Topic</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="alert alert-danger no-topics-alert">
+                    <h4 class="alert-heading">No Topics Assigned!</h4>
+                    <p>This problem doesn't have any topics associated with it yet. Please use the form on the right to add relevant topics.</p>
+                </div>
+                {% endif %}
+                
+                <div class="mt-4">
+                    <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Problems</a>
+                </div>
+            </div>
+        </body>
+        </html>
+        

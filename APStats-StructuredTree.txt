@@ -1,0 +1,97 @@
+UNIT:Unit 1: Exploring One-Variable Data
+TOPIC:1.1 Introducing Statistics: What Can We Learn from Data?
+TOPIC:1.2 The Language of Variation: Variables
+TOPIC:1.3 Representing a Categorical Variable with Tables
+TOPIC:1.4 Representing a Categorical Variable with Graphs
+TOPIC:1.5 Representing a Quantitative Variable with Graphs
+TOPIC:1.6 Describing the Distribution of a Quantitative Variable
+TOPIC:1.7 Summary Statistics for a Quantitative Variable
+TOPIC:1.8 Graphical Representations of Summary Statistics
+TOPIC:1.9 Comparing Distributions of a Quantitative Variable
+TOPIC:1.10 The Normal Distribution
+
+UNIT:Unit 2: Exploring Two-Variable Data
+TOPIC:2.1 Introducing Statistics: Are Variables Related?
+TOPIC:2.2 Representing Two Categorical Variables
+TOPIC:2.3 Statistics for Two Categorical Variables
+TOPIC:2.4 Representing the Relationship Between Two Quantitative Variables
+TOPIC:2.5 Correlation
+TOPIC:2.6 Linear Regression Models
+TOPIC:2.7 Residuals
+TOPIC:2.8 Least Squares Regression
+TOPIC:2.9 Analyzing Departures from Linearity
+
+UNIT:Unit 3: Collecting Data
+TOPIC:3.1 Introducing Statistics: Do the Data We Collected Tell the Truth?
+TOPIC:3.2 Introduction to Planning a Study
+TOPIC:3.3 Random Sampling and Data Collection
+TOPIC:3.4 Potential Problems with Sampling
+TOPIC:3.5 Introduction to Experimental Design
+TOPIC:3.6 Selecting an Experimental Design
+TOPIC:3.7 Inference and Experiments
+
+UNIT:Unit 4: Probability, Random Variables, and Probability Distributions
+TOPIC:4.1 Introducing Statistics: Random and Non-Random Patterns?
+TOPIC:4.2 Estimating Probabilities Using Simulation
+TOPIC:4.3 Introduction to Probability
+TOPIC:4.4 Mutually Exclusive Events
+TOPIC:4.5 Conditional Probability
+TOPIC:4.6 Independent Events and Unions of Events
+TOPIC:4.7 Introduction to Random Variables and Probability Distributions
+TOPIC:4.8 Mean and Standard Deviation of Random Variables
+TOPIC:4.9 Combining Random Variables
+TOPIC:4.10 Introduction to the Binomial Distribution
+TOPIC:4.11 Parameters for a Binomial Distribution
+TOPIC:4.12 The Geometric Distribution
+
+UNIT:Unit 5: Sampling Distributions
+TOPIC:5.1 Introducing Statistics: Why Is My Sample Not Like Yours?
+TOPIC:5.2 The Normal Distribution, Revisited
+TOPIC:5.3 The Central Limit Theorem
+TOPIC:5.4 Biased and Unbiased Point Estimates
+TOPIC:5.5 Sampling Distributions for Sample Proportions
+TOPIC:5.6 Sampling Distributions for Differences in Sample Proportions
+TOPIC:5.7 Sampling Distributions for Sample Means
+TOPIC:5.8 Sampling Distributions for Differences in Sample Means
+
+UNIT:Unit 6: Inference for Categorical Data: Proportions
+TOPIC:6.1 Introducing Statistics: Why Be Normal?
+TOPIC:6.2 Constructing a Confidence Interval for a Population Proportion
+TOPIC:6.3 Justifying a Claim Based on a Confidence Interval for a Population Proportion
+TOPIC:6.4 Setting Up a Test for a Population Proportion
+TOPIC:6.5 Interpreting p-Values
+TOPIC:6.6 Concluding a Test for a Population Proportion
+TOPIC:6.7 Potential Errors When Performing Tests
+TOPIC:6.8 Confidence Intervals for the Difference of Two Proportions
+TOPIC:6.9 Justifying a Claim Based on a Confidence Interval for a Difference of Population Proportions
+TOPIC:6.10 Setting Up a Test for the Difference of Two Population Proportions
+TOPIC:6.11 Carrying Out a Test for the Difference of Two Population Proportions
+
+UNIT:Unit 7: Inference for Quantitative Data: Means
+TOPIC:7.1 Introducing Statistics: Should I Worry About Error?
+TOPIC:7.2 Constructing a Confidence Interval for a Population Mean
+TOPIC:7.3 Justifying a Claim About a Population Mean Based on a Confidence Interval
+TOPIC:7.4 Setting Up a Test for a Population Mean
+TOPIC:7.5 Carrying Out a Test for the Population Mean
+TOPIC:7.6 Confidence Intervals for the Difference of Two Means
+TOPIC:7.7 Justifying a Claim About the Difference of Two Means Based on a Confidence Interval
+TOPIC:7.8 Setting Up a Test for the Difference of Two Population Means
+TOPIC:7.9 Carrying Out a Test for the Difference of Two Population Means
+TOPIC:7.10 Skills Focus: Selecting, Implementing, and Communicating Inference Procedures
+
+UNIT:Unit 8: Inference for Categorical Data: Chi-Square
+TOPIC:8.1 Introducing Statistics: Are My Results Unexpected?
+TOPIC:8.2 Setting Up a Chi-Square Goodness of Fit Test
+TOPIC:8.3 Carrying Out a Chi-Square Test for Goodness of Fit
+TOPIC:8.4 Expected Counts in Two-Way Tables
+TOPIC:8.5 Setting Up a Chi-Square Test for Homogeneity or Independence
+TOPIC:8.6 Carrying Out a Chi-Square Test for Homogeneity or Independence
+TOPIC:8.7 Skills Focus: Selecting an Appropriate Inference Procedure for Categorical Data
+
+UNIT:Unit 9: Inference for Quantitative Data: Slopes
+TOPIC:9.1 Introducing Statistics: Do Those Points Align?
+TOPIC:9.2 Confidence Intervals for the Slope of a Regression Model
+TOPIC:9.3 Justifying a Claim About the Slope of a Regression Model Based on a Confidence Interval
+TOPIC:9.4 Setting Up a Test for the Slope of a Regression Model
+TOPIC:9.5 Carrying Out a Test for the Slope of a Regression Model
+TOPIC:9.6 Skills Focus: Selecting an Appropriate Inference Procedure 
