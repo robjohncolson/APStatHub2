@@ -31,7 +31,9 @@ def get_problem_images():
             'year': problem['year'],
             'description': problem['description'],
             'difficulty': problem['difficulty'],
-            'source': problem['source']
+            'source': problem['source'],
+            'problem_type': problem.get('problem_type'),  # May be None if column was just added
+            'problem_num': problem.get('problem_num')     # May be None if column was just added
         }
     
     conn.close()
@@ -47,17 +49,24 @@ def get_problem_images():
         year_match = re.search(r'(\d{4})', filename)
         year = stored_metadata.get('year') or (year_match.group(1) if year_match else "Unknown")
         
-        # Determine if it's MCQ or FRQ
-        if 'MCQ' in filename:
+        # Determine if it's MCQ or FRQ - use stored value if available
+        stored_type = stored_metadata.get('problem_type')
+        if stored_type:
+            problem_type = stored_type
+        elif 'MCQ' in filename:
             problem_type = 'Multiple Choice'
         elif 'FRQ' in filename or 'Frq' in filename:
             problem_type = 'Free Response'
         else:
             problem_type = 'Unknown'
         
-        # Extract problem number
-        num_match = re.search(r'(?:MCQ|FRQ|Frq)(\d+)', filename)
-        problem_num = num_match.group(1) if num_match else ""
+        # Extract problem number - use stored value if available
+        stored_num = stored_metadata.get('problem_num')
+        if stored_num:
+            problem_num = stored_num
+        else:
+            num_match = re.search(r'(?:MCQ|FRQ|Frq)(\d+)', filename)
+            problem_num = num_match.group(1) if num_match else ""
         
         # Extract part number for FRQs (e.g., FRQ1-2 would be part 2 of question 1)
         part_match = re.search(r'(?:FRQ|Frq)(\d+)-(\d+)', filename)
@@ -65,12 +74,15 @@ def get_problem_images():
         
         # Create a group identifier for related FRQ parts
         group_id = None
-        if problem_type == 'Free Response' and num_match:
+        if problem_type == 'Free Response' and problem_num:
             # Group identifier: year_FRQ_number (e.g., 2019_FRQ_1)
             group_id = f"{year}_FRQ_{problem_num}"
         
         # Use stored description if available
         description = stored_metadata.get('description', f"Problem from {year} AP Statistics Exam")
+        
+        # Create display name using stored values if available
+        display_name = f"{year} {problem_type} #{problem_num}" + (f" (Part {part_num})" if part_match else "")
         
         image_files.append({
             'filename': filename,
@@ -81,7 +93,7 @@ def get_problem_images():
             'part': part_num,
             'group_id': group_id,
             'description': description,
-            'display_name': f"{year} {problem_type} #{problem_num}" + (f" (Part {part_num})" if part_match else "")
+            'display_name': display_name
         })
     
     # Sort by year, then by problem number, then by part number
@@ -145,7 +157,9 @@ def index():
             'year': problem['year'],
             'description': problem['description'],
             'difficulty': problem['difficulty'],
-            'source': problem['source']
+            'source': problem['source'],
+            'problem_type': problem.get('problem_type'),
+            'problem_num': problem.get('problem_num')
         }
     
     conn.close()
@@ -158,12 +172,22 @@ def index():
         
         # Use database values for display if available
         if problem['filename'] in problem_data:
-            problem['year'] = data.get('year', problem['year'])
+            db_year = data.get('year')
+            db_type = data.get('problem_type')
+            db_num = data.get('problem_num')
+            
+            if db_year:
+                problem['year'] = db_year
+            if db_type:
+                problem['type'] = db_type
+            if db_num:
+                problem['number'] = db_num
+                
             problem['description'] = data.get('description', problem['description'])
             
-            # Update display name with database year if available
-            if data.get('year'):
-                problem['display_name'] = f"{data['year']} {problem['type']} #{problem['number']}" + (f" (Part {problem['part']})" if problem['part'] != "1" else "")
+            # Update display name with database values
+            part_suffix = f" (Part {problem['part']})" if problem['part'] != "1" else ""
+            problem['display_name'] = f"{problem['year']} {problem['type']} #{problem['number']}{part_suffix}"
     
     # Add topic information to grouped problems
     for group_id, group in grouped_problems.items():
@@ -174,10 +198,20 @@ def index():
         # Use the year from the database for the first part if available
         first_part = group['parts'][0] if group['parts'] else None
         if first_part and first_part['filename'] in problem_data:
-            db_year = problem_data[first_part['filename']].get('year')
+            data = problem_data[first_part['filename']]
+            db_year = data.get('year')
+            db_type = data.get('problem_type')
+            db_num = data.get('problem_num')
+            
             if db_year:
                 group['year'] = db_year
-                group['display_name'] = f"{db_year} {group['type']} #{group['number']}"
+            if db_type:
+                group['type'] = db_type
+            if db_num:
+                group['number'] = db_num
+                
+            # Update group display name
+            group['display_name'] = f"{group['year']} {group['type']} #{group['number']}"
         
         for part in group['parts']:
             data = problem_data.get(part['filename'], {})
@@ -192,8 +226,22 @@ def index():
             
             # Use database values for display if available
             if part['filename'] in problem_data:
-                part['year'] = data.get('year', part['year'])
+                db_year = data.get('year')
+                db_type = data.get('problem_type')
+                db_num = data.get('problem_num')
+                
+                if db_year:
+                    part['year'] = db_year
+                if db_type:
+                    part['type'] = db_type
+                if db_num:
+                    part['number'] = db_num
+                    
                 part['description'] = data.get('description', part['description'])
+                
+                # Update part display name
+                part_suffix = f" (Part {part['part']})" if part['part'] != "1" else ""
+                part['display_name'] = f"{part['year']} {part['type']} #{part['number']}{part_suffix}"
         
         group['has_topics'] = group_has_topics
         group['topic_count'] = total_topic_count
@@ -299,27 +347,35 @@ def problem_detail(filename):
                 ORDER BY problem_number
             ''', (f"%{part_pattern}%", filename)).fetchall()
     
-    conn.close()
-    
     # Extract year and problem type for display
-    year_match = re.search(r'(\d{4})', filename)
-    year = year_match.group(1) if year_match else "Unknown"
+    # Use stored values if available
+    year = problem['year'] or "Unknown"
     
-    if 'MCQ' in filename:
+    # Use stored problem_type if available
+    if hasattr(problem, 'problem_type') and problem['problem_type']:
+        problem_type = problem['problem_type']
+    elif 'MCQ' in filename:
         problem_type = 'Multiple Choice'
     elif 'FRQ' in filename or 'Frq' in filename:
         problem_type = 'Free Response'
     else:
         problem_type = 'Unknown'
     
-    num_match = re.search(r'(?:MCQ|FRQ|Frq)(\d+)', filename)
-    problem_num = num_match.group(1) if num_match else ""
+    # Use stored problem_num if available
+    if hasattr(problem, 'problem_num') and problem['problem_num']:
+        problem_num = problem['problem_num']
+    else:
+        num_match = re.search(r'(?:MCQ|FRQ|Frq)(\d+)', filename)
+        problem_num = num_match.group(1) if num_match else ""
     
     # Extract part number for FRQs
     part_match = re.search(r'(?:FRQ|Frq)(\d+)-(\d+)', filename)
     part_num = part_match.group(2) if part_match else ""
     
+    # Create display name using stored values
     display_name = f"{year} {problem_type} #{problem_num}" + (f" (Part {part_num})" if part_match else "")
+    
+    conn.close()
     
     return render_template('problem.html', 
                           problem=problem, 
@@ -350,6 +406,20 @@ def update_problem_metadata():
     
     conn = get_db_connection()
     
+    # Check if the problem_type and problem_num columns exist
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA table_info(problems)")
+    columns = [column[1] for column in cursor.fetchall()]
+    
+    # Add the columns if they don't exist
+    if 'problem_type' not in columns:
+        cursor.execute("ALTER TABLE problems ADD COLUMN problem_type TEXT")
+    
+    if 'problem_num' not in columns:
+        cursor.execute("ALTER TABLE problems ADD COLUMN problem_num TEXT")
+    
+    conn.commit()
+    
     # Get the problem
     problem = conn.execute('SELECT * FROM problems WHERE problem_id = ?', (problem_id,)).fetchone()
     
@@ -360,13 +430,13 @@ def update_problem_metadata():
     # Update the problem metadata
     conn.execute('''
         UPDATE problems 
-        SET year = ?, description = ?, difficulty = ?, source = ?
+        SET year = ?, description = ?, difficulty = ?, source = ?, problem_type = ?, problem_num = ?
         WHERE problem_id = ?
-    ''', (year, description, difficulty, f"Problem from {year} AP Statistics {problem_type}", problem_id))
+    ''', (year, description, difficulty, f"Problem from {year} AP Statistics {problem_type}", problem_type, problem_num, problem_id))
     
     conn.commit()
     
-    # If this is part of an FRQ group, update all parts with the same year
+    # If this is part of an FRQ group, update all parts with the same year and type
     if 'FRQ' in problem['problem_number'] or 'Frq' in problem['problem_number']:
         # Extract FRQ number
         num_match = re.search(r'(?:FRQ|Frq)(\d+)', problem['problem_number'])
@@ -381,13 +451,13 @@ def update_problem_metadata():
                 WHERE problem_number LIKE ? AND problem_id != ?
             ''', (part_pattern, problem_id)).fetchall()
             
-            # Update year for all parts
+            # Update year and type for all parts
             for part in group_parts:
                 conn.execute('''
                     UPDATE problems 
-                    SET year = ?, source = ?
+                    SET year = ?, source = ?, problem_type = ?, problem_num = ?
                     WHERE problem_id = ?
-                ''', (year, f"Problem from {year} AP Statistics {problem_type}", part['problem_id']))
+                ''', (year, f"Problem from {year} AP Statistics {problem_type}", problem_type, problem_num, part['problem_id']))
             
             conn.commit()
     
