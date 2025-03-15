@@ -32,8 +32,8 @@ def get_problem_images():
             'description': problem['description'],
             'difficulty': problem['difficulty'],
             'source': problem['source'],
-            'problem_type': problem.get('problem_type'),  # May be None if column was just added
-            'problem_num': problem.get('problem_num')     # May be None if column was just added
+            'problem_type': problem['problem_type'] if 'problem_type' in problem.keys() else None,
+            'problem_num': problem['problem_num'] if 'problem_num' in problem.keys() else None
         }
     
     conn.close()
@@ -158,8 +158,8 @@ def index():
             'description': problem['description'],
             'difficulty': problem['difficulty'],
             'source': problem['source'],
-            'problem_type': problem.get('problem_type'),
-            'problem_num': problem.get('problem_num')
+            'problem_type': problem['problem_type'] if 'problem_type' in problem.keys() else None,
+            'problem_num': problem['problem_num'] if 'problem_num' in problem.keys() else None
         }
     
     conn.close()
@@ -347,12 +347,11 @@ def problem_detail(filename):
                 ORDER BY problem_number
             ''', (f"%{part_pattern}%", filename)).fetchall()
     
-    # Extract year and problem type for display
     # Use stored values if available
     year = problem['year'] or "Unknown"
     
     # Use stored problem_type if available
-    if hasattr(problem, 'problem_type') and problem['problem_type']:
+    if 'problem_type' in problem.keys() and problem['problem_type']:
         problem_type = problem['problem_type']
     elif 'MCQ' in filename:
         problem_type = 'Multiple Choice'
@@ -362,7 +361,7 @@ def problem_detail(filename):
         problem_type = 'Unknown'
     
     # Use stored problem_num if available
-    if hasattr(problem, 'problem_num') and problem['problem_num']:
+    if 'problem_num' in problem.keys() and problem['problem_num']:
         problem_num = problem['problem_num']
     else:
         num_match = re.search(r'(?:MCQ|FRQ|Frq)(\d+)', filename)
