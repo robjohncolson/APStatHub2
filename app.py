@@ -273,7 +273,44 @@ def problem_detail(filename):
                           display_name=display_name,
                           is_frq=is_frq,
                           group_id=group_id,
-                          group_parts=group_parts)
+                          group_parts=group_parts,
+                          year=year,
+                          problem_type=problem_type,
+                          problem_num=problem_num,
+                          part_num=part_num)
+
+@app.route('/update_problem_metadata', methods=['POST'])
+def update_problem_metadata():
+    """Update problem metadata (year, type, number, etc.)."""
+    problem_id = request.form['problem_id']
+    year = request.form['year']
+    problem_type = request.form['problem_type']
+    problem_num = request.form['problem_num']
+    description = request.form['description']
+    difficulty = request.form.get('difficulty', None)
+    
+    conn = get_db_connection()
+    
+    # Get the problem
+    problem = conn.execute('SELECT * FROM problems WHERE problem_id = ?', (problem_id,)).fetchone()
+    
+    if not problem:
+        flash('Problem not found!')
+        return redirect(url_for('index'))
+    
+    # Update the problem metadata
+    conn.execute('''
+        UPDATE problems 
+        SET year = ?, description = ?, difficulty = ?
+        WHERE problem_id = ?
+    ''', (year, description, difficulty, problem_id))
+    
+    conn.commit()
+    flash('Problem metadata updated successfully!')
+    
+    conn.close()
+    
+    return redirect(url_for('problem_detail', filename=problem['problem_number']))
 
 @app.route('/add_problem_topic', methods=['POST'])
 def add_problem_topic():
@@ -666,8 +703,50 @@ if __name__ == '__main__':
                     </div>
                     <div class="col-md-4">
                         <div class="card mb-4">
-                            <div class="card-header">Problem Details</div>
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>Problem Details</span>
+                                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#editMetadataForm">
+                                    Edit Metadata
+                                </button>
+                            </div>
                             <div class="card-body">
+                                <div class="collapse mb-3" id="editMetadataForm">
+                                    <form method="post" action="{{ url_for('update_problem_metadata') }}">
+                                        <input type="hidden" name="problem_id" value="{{ problem.problem_id }}">
+                                        
+                                        <div class="mb-2">
+                                            <label for="year" class="form-label">Year</label>
+                                            <input type="text" class="form-control" id="year" name="year" value="{{ year }}">
+                                        </div>
+                                        
+                                        <div class="mb-2">
+                                            <label for="problem_type" class="form-label">Problem Type</label>
+                                            <select class="form-select" id="problem_type" name="problem_type">
+                                                <option value="Multiple Choice" {% if problem_type == 'Multiple Choice' %}selected{% endif %}>Multiple Choice</option>
+                                                <option value="Free Response" {% if problem_type == 'Free Response' %}selected{% endif %}>Free Response</option>
+                                                <option value="Other" {% if problem_type not in ['Multiple Choice', 'Free Response'] %}selected{% endif %}>Other</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="mb-2">
+                                            <label for="problem_num" class="form-label">Problem Number</label>
+                                            <input type="text" class="form-control" id="problem_num" name="problem_num" value="{{ problem_num }}">
+                                        </div>
+                                        
+                                        <div class="mb-2">
+                                            <label for="description" class="form-label">Description</label>
+                                            <textarea class="form-control" id="description" name="description" rows="2">{{ problem.description }}</textarea>
+                                        </div>
+                                        
+                                        <div class="mb-2">
+                                            <label for="difficulty" class="form-label">Difficulty (1-5)</label>
+                                            <input type="number" class="form-control" id="difficulty" name="difficulty" min="1" max="5" value="{{ problem.difficulty or '' }}">
+                                        </div>
+                                        
+                                        <button type="submit" class="btn btn-primary">Update Metadata</button>
+                                    </form>
+                                </div>
+                                
                                 <p><strong>Source:</strong> {{ problem.source }}</p>
                                 {% if problem.year %}
                                 <p><strong>Year:</strong> {{ problem.year }}</p>
@@ -675,6 +754,7 @@ if __name__ == '__main__':
                                 {% if problem.difficulty %}
                                 <p><strong>Difficulty:</strong> {{ problem.difficulty }}/5</p>
                                 {% endif %}
+                                <p><strong>Description:</strong> {{ problem.description }}</p>
                             </div>
                         </div>
                         
@@ -765,6 +845,9 @@ if __name__ == '__main__':
                     <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Problems</a>
                 </div>
             </div>
+            
+            <!-- Bootstrap JS for collapsible elements -->
+            <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
         </body>
         </html>
         ''',
