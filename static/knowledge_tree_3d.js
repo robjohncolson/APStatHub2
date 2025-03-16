@@ -132,6 +132,7 @@ function setupKeyboardControls() {
             <li>+/-: Zoom in/out</li>
             <li>Arrow Keys: Pan view</li>
             <li>Shift + Any Movement Key: Fine control (1/5 speed)</li>
+            <li>Ctrl+Shift + Any Movement Key: Super fine control (1/25 speed)</li>
             <li>R: Reset view</li>
             <li>K: Toggle controls</li>
         </ul>
@@ -184,18 +185,26 @@ function handleKeyDown(event) {
     const key = event.key.toLowerCase();
     let panVector = new THREE.Vector3();
     
-    // Check if shift key is pressed for fine control
+    // Check if modifier keys are pressed for fine control
     const isShiftPressed = event.shiftKey;
-    // Adjust pan speed based on shift key state
-    const currentPanSpeed = isShiftPressed ? PAN_SPEED / 5 : PAN_SPEED;
-    // Also adjust keyboard movement speed
-    const currentMoveSpeed = isShiftPressed ? KEYBOARD_MOVE_SPEED / 5 : KEYBOARD_MOVE_SPEED;
-    // And zoom speed
-    const currentZoomSpeed = isShiftPressed ? KEYBOARD_ZOOM_SPEED / 5 : KEYBOARD_ZOOM_SPEED;
+    const isCtrlPressed = event.ctrlKey;
     
-    if (isShiftPressed) {
-        console.log('Shift key pressed - using fine control mode with speed:', currentPanSpeed);
+    // Determine speed multiplier based on modifier keys
+    let speedMultiplier = 1.0;
+    if (isShiftPressed && isCtrlPressed) {
+        // Super fine control (1/25 speed)
+        speedMultiplier = 1/25;
+        console.log('Ctrl+Shift pressed - using super fine control mode (1/25 speed)');
+    } else if (isShiftPressed) {
+        // Fine control (1/5 speed)
+        speedMultiplier = 1/5;
+        console.log('Shift pressed - using fine control mode (1/5 speed)');
     }
+    
+    // Apply speed multiplier to all movement speeds
+    const currentPanSpeed = PAN_SPEED * speedMultiplier;
+    const currentMoveSpeed = KEYBOARD_MOVE_SPEED * speedMultiplier;
+    const currentZoomSpeed = KEYBOARD_ZOOM_SPEED * speedMultiplier;
 
     switch (key) {
         case 'w':
