@@ -27,6 +27,7 @@ const SPRING_CONSTANT = 0.1; // Stiffness of springs
 const DAMPING = 0.99; // Damping factor for physics
 const KEYBOARD_MOVE_SPEED = 10; // Speed for keyboard movement
 const KEYBOARD_ZOOM_SPEED = 50; // Speed for keyboard zooming
+const PAN_SPEED = 20; // Speed for arrow key panning
 const UNIT_HEIGHT_MIN = -400; // Lowest height for Unit 1
 const UNIT_HEIGHT_MAX = 400;  // Highest height for Unit 9
 const Z_DEPTH_ROOT = -300;    // Root furthest back
@@ -122,6 +123,7 @@ function setupKeyboardControls() {
             <li>A/D: Move left/right</li>
             <li>Q/E: Move up/down</li>
             <li>+/-: Zoom in/out</li>
+            <li>Arrow Keys: Pan view</li>
             <li>R: Reset view</li>
             <li>K: Toggle controls</li>
         </ul>
@@ -135,17 +137,65 @@ function setupKeyboardControls() {
 function handleKeyDown(event) {
     if (!keyboardControls.enabled) return;
     const key = event.key.toLowerCase();
+    let panVector = new THREE.Vector3();
+
     switch (key) {
-        case 'w': camera.position.z -= KEYBOARD_MOVE_SPEED; break;
-        case 's': camera.position.z += KEYBOARD_MOVE_SPEED; break;
-        case 'a': camera.position.x -= KEYBOARD_MOVE_SPEED; break;
-        case 'd': camera.position.x += KEYBOARD_MOVE_SPEED; break;
-        case 'q': camera.position.y += KEYBOARD_MOVE_SPEED; break;
-        case 'e': camera.position.y -= KEYBOARD_MOVE_SPEED; break;
-        case '+': case '=': camera.position.z -= KEYBOARD_ZOOM_SPEED; break;
-        case '-': case '_': camera.position.z += KEYBOARD_ZOOM_SPEED; break;
-        case 'r': resetCamera(); break;
-        case 'k': toggleKeyboardControls(); break;
+        case 'w':
+            camera.position.z -= KEYBOARD_MOVE_SPEED;
+            break;
+        case 's':
+            camera.position.z += KEYBOARD_MOVE_SPEED;
+            break;
+        case 'a':
+            camera.position.x -= KEYBOARD_MOVE_SPEED;
+            break;
+        case 'd':
+            camera.position.x += KEYBOARD_MOVE_SPEED;
+            break;
+        case 'q':
+            camera.position.y += KEYBOARD_MOVE_SPEED;
+            break;
+        case 'e':
+            camera.position.y -= KEYBOARD_MOVE_SPEED;
+            break;
+        case '+':
+        case '=':
+            camera.position.z -= KEYBOARD_ZOOM_SPEED;
+            break;
+        case '-':
+        case '_':
+            camera.position.z += KEYBOARD_ZOOM_SPEED;
+            break;
+        case 'arrowleft':
+            // Pan left: negative right vector
+            panVector.setFromMatrixColumn(camera.matrix, 0).negate().multiplyScalar(PAN_SPEED);
+            controls.pan(panVector);
+            event.preventDefault();
+            break;
+        case 'arrowright':
+            // Pan right: positive right vector
+            panVector.setFromMatrixColumn(camera.matrix, 0).multiplyScalar(PAN_SPEED);
+            controls.pan(panVector);
+            event.preventDefault();
+            break;
+        case 'arrowup':
+            // Pan up: positive up vector
+            panVector.setFromMatrixColumn(camera.matrix, 1).multiplyScalar(PAN_SPEED);
+            controls.pan(panVector);
+            event.preventDefault();
+            break;
+        case 'arrowdown':
+            // Pan down: negative up vector
+            panVector.setFromMatrixColumn(camera.matrix, 1).negate().multiplyScalar(PAN_SPEED);
+            controls.pan(panVector);
+            event.preventDefault();
+            break;
+        case 'r':
+            resetCamera();
+            break;
+        case 'k':
+            toggleKeyboardControls();
+            break;
     }
     controls.update();
 }
