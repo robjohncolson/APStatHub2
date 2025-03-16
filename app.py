@@ -286,7 +286,7 @@ def index():
         problems_by_year[year]['groups'].append(group)
     
     # Sort years in descending order (most recent first)
-    sorted_years = sorted(problems_by_year.keys(), reverse=True)
+    sorted_years = sorted(problems_by_year.keys(), key=lambda x: str(x), reverse=True)
     
     return render_template('index.html', 
                           problems_by_year=problems_by_year, 
