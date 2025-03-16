@@ -61,7 +61,7 @@ def get_problem_images():
     
     # Sort by year, then by problem number, then by part number
     image_files.sort(key=lambda x: (
-        x['year'], 
+        str(x['year']), 
         x['type'], 
         int(x['number']) if x['number'].isdigit() else 999,
         int(x['part']) if x['part'].isdigit() else 1
