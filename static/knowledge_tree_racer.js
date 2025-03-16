@@ -13,8 +13,12 @@ let raycaster, mouse;
 let tooltipDiv, infoPanel;
 let clock;
 let score = 0;
+let raceTime = 0;
 let problemsVisited = new Set();
 let gameStarted = false;
+let trackSegments = [];
+let boostZones = [];
+let isDrifting = false;
 
 // Constants for game
 const NODE_SIZE = 5;
@@ -26,10 +30,17 @@ const HIGHLIGHT_COLOR = 0xff9900;
 const PLAYER_COLOR = 0x0066ff;
 const TARGET_COLOR = 0xff0000;
 const PATH_COLOR = 0xffcc00;
-const MAX_SPEED = 2;
+const BOOST_COLOR = 0x00ffff;
+const MAX_SPEED = 3;
 const ACCELERATION = 0.05;
 const DECELERATION = 0.03;
-const ROTATION_SPEED = 0.05;
+const ROTATION_SPEED = 0.03;
+const DRIFT_ROTATION_MULTIPLIER = 2.0;
+const GRAVITY = 0.1;
+const TRACK_HEIGHT = 5;
+const JUMP_FORCE = 1.5;
+const BOOST_MULTIPLIER = 1.5;
+const BOOST_DURATION = 3; // seconds
 
 // Initialize the game
 function init() {
@@ -86,6 +97,7 @@ function createUI() {
             <p>Problems Visited: <span id="problems-visited">0</span>/<span id="total-problems">0</span></p>
             <p>Current Node: <span id="current-node">None</span></p>
             <p>Target Node: <span id="target-node">None</span></p>
+            <p>Race Time: <span id="race-time">0.0</span> seconds</p>
         </div>
         <div id="game-controls">
             <h4>Controls:</h4>
@@ -93,7 +105,16 @@ function createUI() {
             <p>S/Down Arrow: Brake/Reverse</p>
             <p>A/Left Arrow: Turn Left</p>
             <p>D/Right Arrow: Turn Right</p>
-            <p>Space: Jump to Next Topic</p>
+            <p>Space: Jump</p>
+            <p>Shift: Drift (for sharper turns)</p>
+        </div>
+        <div id="game-instructions">
+            <h4>Racing Instructions:</h4>
+            <p>1. Click on a problem node to start</p>
+            <p>2. Race to the target node (red)</p>
+            <p>3. Drive through blue boost rings for speed boosts</p>
+            <p>4. Faster completion = higher score!</p>
+            <p>5. Follow the yellow path for guidance</p>
         </div>
         <button id="start-game" style="width: 100%; padding: 8px; margin-top: 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Start Game</button>
     `;
@@ -470,22 +491,121 @@ function createBranch(startPoint, endPoint, isActive) {
 
 // Create player object
 function createPlayer() {
-    // Create a cone for the player (like a spaceship)
-    const geometry = new THREE.ConeGeometry(2, 8, 16);
-    const material = new THREE.MeshLambertMaterial({ color: PLAYER_COLOR });
-    player = new THREE.Mesh(geometry, material);
+    // Create a car-like shape for the player
+    const carBody = new THREE.Group();
+    
+    // Main body
+    const bodyGeometry = new THREE.BoxGeometry(4, 1.5, 8);
+    const bodyMaterial = new THREE.MeshLambertMaterial({ color: PLAYER_COLOR });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.position.y = 0.75;
+    carBody.add(body);
+    
+    // Cockpit/windshield
+    const cockpitGeometry = new THREE.BoxGeometry(3, 1, 3);
+    const cockpitMaterial = new THREE.MeshLambertMaterial({ 
+        color: 0x88ccff,
+        transparent: true,
+        opacity: 0.7
+    });
+    const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
+    cockpit.position.set(0, 1.5, -1);
+    carBody.add(cockpit);
+    
+    // Wheels
+    const wheelGeometry = new THREE.CylinderGeometry(1, 1, 0.5, 16);
+    const wheelMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
+    
+    const wheelPositions = [
+        [-1.8, 0, -2.5], // front left
+        [1.8, 0, -2.5],  // front right
+        [-1.8, 0, 2.5],  // rear left
+        [1.8, 0, 2.5]    // rear right
+    ];
+    
+    wheelPositions.forEach(pos => {
+        const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+        wheel.position.set(pos[0], pos[1], pos[2]);
+        wheel.rotation.z = Math.PI / 2;
+        carBody.add(wheel);
+    });
+    
+    // Add headlights
+    const headlightGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+    const headlightMaterial = new THREE.MeshBasicMaterial({ color: 0xffffcc });
+    
+    const leftHeadlight = new THREE.Mesh(headlightGeometry, headlightMaterial);
+    leftHeadlight.position.set(-1.5, 0.75, -4);
+    carBody.add(leftHeadlight);
+    
+    const rightHeadlight = new THREE.Mesh(headlightGeometry, headlightMaterial);
+    rightHeadlight.position.set(1.5, 0.75, -4);
+    carBody.add(rightHeadlight);
+    
+    // Add spotlights for headlights
+    const leftSpotlight = new THREE.SpotLight(0xffffcc, 1);
+    leftSpotlight.position.set(-1.5, 0.75, -4);
+    leftSpotlight.angle = Math.PI / 6;
+    leftSpotlight.penumbra = 0.2;
+    leftSpotlight.decay = 2;
+    leftSpotlight.distance = 100;
+    leftSpotlight.target.position.set(-1.5, 0, -10);
+    carBody.add(leftSpotlight);
+    carBody.add(leftSpotlight.target);
+    
+    const rightSpotlight = new THREE.SpotLight(0xffffcc, 1);
+    rightSpotlight.position.set(1.5, 0.75, -4);
+    rightSpotlight.angle = Math.PI / 6;
+    rightSpotlight.penumbra = 0.2;
+    rightSpotlight.decay = 2;
+    rightSpotlight.distance = 100;
+    rightSpotlight.target.position.set(1.5, 0, -10);
+    carBody.add(rightSpotlight);
+    carBody.add(rightSpotlight.target);
+    
+    // Add exhaust particles
+    const exhaustGeometry = new THREE.BufferGeometry();
+    const exhaustMaterial = new THREE.PointsMaterial({
+        color: 0xffaa00,
+        size: 0.5,
+        transparent: true,
+        opacity: 0.8
+    });
+    
+    const exhaustParticles = [];
+    for (let i = 0; i < 50; i++) {
+        exhaustParticles.push(
+            THREE.MathUtils.randFloatSpread(0.5),
+            THREE.MathUtils.randFloatSpread(0.5),
+            THREE.MathUtils.randFloat(0, 5)
+        );
+    }
+    
+    exhaustGeometry.setAttribute('position', new THREE.Float32BufferAttribute(exhaustParticles, 3));
+    const exhaust = new THREE.Points(exhaustGeometry, exhaustMaterial);
+    exhaust.position.set(0, 0.75, 4);
+    carBody.add(exhaust);
+    
+    // Set up the player object
+    player = carBody;
     player.castShadow = true;
     player.receiveShadow = true;
     
-    // Rotate to point forward
-    player.rotation.x = Math.PI / 2;
+    // Initialize physics properties
+    player.userData.velocity = new THREE.Vector3();
+    player.userData.acceleration = new THREE.Vector3();
+    player.userData.isGrounded = true;
+    player.userData.isJumping = false;
+    player.userData.isBoosting = false;
+    player.userData.boostTimeRemaining = 0;
+    player.userData.exhaust = exhaust;
     
     scene.add(player);
     
     // Position at starting node
     if (currentNode) {
         player.position.copy(currentNode.position);
-        player.position.y += 5; // Slightly above the node
+        player.position.z += TRACK_HEIGHT;
     }
 }
 
@@ -615,80 +735,259 @@ function startGame() {
 function positionCameraBehindPlayer() {
     if (!player) return;
     
-    // Calculate position behind player
-    const offset = new THREE.Vector3(0, 10, 30);
-    offset.applyQuaternion(player.quaternion);
+    // Calculate camera distance based on speed
+    const cameraDistance = 30 + (playerSpeed * 3);
+    const cameraHeight = 15 + (playerSpeed * 1);
     
-    camera.position.copy(player.position).add(offset);
+    // Calculate direction vector (opposite of player's facing direction)
+    const backward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), player.rotation.y);
+    
+    // Calculate target position
+    const targetPosition = new THREE.Vector3(
+        player.position.x + (backward.x * cameraDistance),
+        player.position.y + (backward.y * cameraDistance),
+        player.position.z + cameraHeight
+    );
+    
+    // Smoothly move camera to target position
+    camera.position.lerp(targetPosition, 0.1);
+    
+    // Look at player
     camera.lookAt(player.position);
+    
+    // Adjust FOV based on speed for a sense of speed
+    camera.fov = 75 + (playerSpeed * 5);
+    camera.updateProjectionMatrix();
 }
 
 // Update player movement based on keyboard input
 function updatePlayerMovement() {
     if (!gameStarted || !player) return;
     
+    const delta = clock.getDelta();
+    
+    // Get forward direction based on player's rotation
+    const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), player.rotation.y);
+    
+    // Get velocity from player data or initialize it
+    let velocity = player.userData.velocity;
+    
+    // Check if player is drifting
+    isDrifting = keyState['ShiftLeft'] || keyState['ShiftRight'];
+    
     // Handle acceleration/deceleration
     if (keyState['KeyW'] || keyState['ArrowUp']) {
-        playerSpeed = Math.min(playerSpeed + ACCELERATION, MAX_SPEED);
+        // Accelerate in the forward direction
+        const acceleration = forward.clone().multiplyScalar(ACCELERATION);
+        velocity.add(acceleration);
     } else if (keyState['KeyS'] || keyState['ArrowDown']) {
-        playerSpeed = Math.max(playerSpeed - ACCELERATION, -MAX_SPEED / 2);
+        // Brake/reverse
+        const deceleration = forward.clone().multiplyScalar(-DECELERATION);
+        velocity.add(deceleration);
     } else {
-        // Gradually slow down
-        if (playerSpeed > 0) {
-            playerSpeed = Math.max(0, playerSpeed - DECELERATION);
-        } else if (playerSpeed < 0) {
-            playerSpeed = Math.min(0, playerSpeed + DECELERATION);
+        // Apply friction to gradually slow down
+        velocity.multiplyScalar(0.95);
+    }
+    
+    // Apply boost if active
+    if (player.userData.isBoosting) {
+        player.userData.boostTimeRemaining -= delta;
+        
+        if (player.userData.boostTimeRemaining <= 0) {
+            player.userData.isBoosting = false;
+            // Reset boost visual effects
+            player.userData.exhaust.material.color.setHex(0xffaa00);
+        } else {
+            // Boost is active, increase speed
+            velocity.multiplyScalar(1.05);
         }
     }
     
-    // Handle rotation
-    if (keyState['KeyA'] || keyState['ArrowLeft']) {
-        playerRotation += ROTATION_SPEED;
-    } else if (keyState['KeyD'] || keyState['ArrowRight']) {
-        playerRotation -= ROTATION_SPEED;
+    // Limit maximum speed
+    const currentMaxSpeed = player.userData.isBoosting ? 
+        MAX_SPEED * BOOST_MULTIPLIER : MAX_SPEED;
+    
+    if (velocity.length() > currentMaxSpeed) {
+        velocity.normalize().multiplyScalar(currentMaxSpeed);
     }
     
-    // Apply rotation
-    player.rotation.z = playerRotation;
+    // Store current speed for effects
+    playerSpeed = velocity.length();
     
-    // Calculate movement direction
-    const direction = new THREE.Vector3(0, 0, -1);
-    direction.applyAxisAngle(new THREE.Vector3(1, 0, 0), playerRotation);
+    // Handle steering (rotation)
+    const rotationAmount = ROTATION_SPEED * (playerSpeed / MAX_SPEED);
+    const effectiveRotation = isDrifting ? 
+        rotationAmount * DRIFT_ROTATION_MULTIPLIER : rotationAmount;
     
-    // Move player
-    player.position.x += direction.x * playerSpeed;
-    player.position.z += direction.z * playerSpeed;
+    if (keyState['KeyA'] || keyState['ArrowLeft']) {
+        player.rotation.y += effectiveRotation;
+    } else if (keyState['KeyD'] || keyState['ArrowRight']) {
+        player.rotation.y -= effectiveRotation;
+    }
+    
+    // Apply jumping
+    if ((keyState['Space']) && player.userData.isGrounded && !player.userData.isJumping) {
+        velocity.z = JUMP_FORCE;
+        player.userData.isGrounded = false;
+        player.userData.isJumping = true;
+    }
+    
+    // Apply gravity
+    if (!player.userData.isGrounded) {
+        velocity.z -= GRAVITY;
+    }
+    
+    // Move player based on velocity
+    player.position.add(velocity);
+    
+    // Check ground collision
+    if (player.position.z <= TRACK_HEIGHT && velocity.z <= 0) {
+        player.position.z = TRACK_HEIGHT;
+        velocity.z = 0;
+        player.userData.isGrounded = true;
+        player.userData.isJumping = false;
+    }
+    
+    // Apply drift visual effect
+    if (isDrifting && playerSpeed > MAX_SPEED / 2) {
+        createDriftEffect();
+    }
+    
+    // Update exhaust particles based on speed
+    updateExhaustParticles();
     
     // Check for node collisions
     checkNodeCollisions();
+    
+    // Check for boost zone collisions
+    checkBoostZoneCollisions();
     
     // Position camera behind player
     positionCameraBehindPlayer();
 }
 
-// Check if player has collided with any nodes
-function checkNodeCollisions() {
+// Create drift effect (tire marks)
+function createDriftEffect() {
     if (!player) return;
     
-    // Check distance to all nodes
-    for (const id in nodeMap) {
-        const node = nodeMap[id];
-        const distance = player.position.distanceTo(node.position);
+    // Create tire mark geometry
+    const markGeometry = new THREE.PlaneGeometry(0.5, 2);
+    const markMaterial = new THREE.MeshBasicMaterial({
+        color: 0x333333,
+        transparent: true,
+        opacity: 0.7
+    });
+    
+    // Create tire marks for left and right wheels
+    const wheelOffsets = [
+        new THREE.Vector3(-1.8, 0, 0), // left wheel
+        new THREE.Vector3(1.8, 0, 0)   // right wheel
+    ];
+    
+    wheelOffsets.forEach(offset => {
+        const mark = new THREE.Mesh(markGeometry, markMaterial);
         
-        // If close enough, consider it a collision
-        if (distance < NODE_SIZE * 2) {
-            handleNodeCollision(node);
+        // Position mark at wheel position
+        const wheelPos = player.position.clone().add(
+            offset.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), player.rotation.y)
+        );
+        mark.position.copy(wheelPos);
+        mark.position.z = TRACK_HEIGHT + 0.1; // Slightly above ground
+        
+        // Rotate mark to match player direction
+        mark.rotation.x = -Math.PI / 2; // Lay flat
+        mark.rotation.z = player.rotation.y;
+        
+        scene.add(mark);
+        
+        // Fade out and remove after a short time
+        setTimeout(() => {
+            const fadeInterval = setInterval(() => {
+                mark.material.opacity -= 0.05;
+                if (mark.material.opacity <= 0) {
+                    scene.remove(mark);
+                    clearInterval(fadeInterval);
+                }
+            }, 100);
+        }, 1000);
+    });
+}
+
+// Update exhaust particles based on speed
+function updateExhaustParticles() {
+    if (!player || !player.userData.exhaust) return;
+    
+    const exhaust = player.userData.exhaust;
+    const positions = exhaust.geometry.attributes.position.array;
+    
+    // Update particle positions based on speed
+    for (let i = 0; i < positions.length; i += 3) {
+        // Move particles backward
+        positions[i + 2] += 0.2 * playerSpeed;
+        
+        // Reset particles that go too far
+        if (positions[i + 2] > 5) {
+            positions[i] = THREE.MathUtils.randFloatSpread(0.5);
+            positions[i + 1] = THREE.MathUtils.randFloatSpread(0.5);
+            positions[i + 2] = 0;
+        }
+    }
+    
+    // Update the particles
+    exhaust.geometry.attributes.position.needsUpdate = true;
+    
+    // Adjust particle size based on speed
+    exhaust.material.size = 0.3 + (playerSpeed / MAX_SPEED) * 0.7;
+    
+    // Make exhaust more visible when accelerating
+    if (keyState['KeyW'] || keyState['ArrowUp']) {
+        exhaust.material.opacity = 0.8;
+    } else {
+        exhaust.material.opacity = 0.4;
+    }
+}
+
+// Check for boost zone collisions
+function checkBoostZoneCollisions() {
+    if (!player) return;
+    
+    for (const boostZone of boostZones) {
+        const distance = player.position.distanceTo(boostZone.position);
+        
+        if (distance < 5 && !player.userData.isBoosting) {
+            activateBoost();
+            
+            // Hide the boost zone temporarily
+            boostZone.visible = false;
+            setTimeout(() => {
+                boostZone.visible = true;
+            }, BOOST_DURATION * 1000);
+            
             break;
         }
     }
+}
+
+// Activate boost effect
+function activateBoost() {
+    if (!player) return;
+    
+    player.userData.isBoosting = true;
+    player.userData.boostTimeRemaining = BOOST_DURATION;
+    
+    // Visual effect for boost
+    player.userData.exhaust.material.color.setHex(BOOST_COLOR);
+    
+    // Add a boost sound effect here if you have audio
 }
 
 // Handle collision with a node
 function handleNodeCollision(node) {
     // If it's the target node, we've reached our destination
     if (node === targetNode) {
-        // Add score
-        score += 100;
+        // Add score based on time (faster = more points)
+        const timeBonus = Math.max(1000 - (raceTime * 10), 100);
+        score += timeBonus;
         
         // Mark problem as visited
         if (node.userData.type === 'problem') {
@@ -702,6 +1001,9 @@ function handleNodeCollision(node) {
         // Set current node to target
         currentNode = targetNode;
         document.getElementById('current-node').textContent = currentNode.userData.name;
+        
+        // Reset race timer
+        raceTime = 0;
         
         // Find new target
         setRandomTarget();
@@ -772,6 +1074,12 @@ function animate() {
     
     const delta = clock ? clock.getDelta() : 0;
     
+    // Update race time if game is started
+    if (gameStarted) {
+        raceTime += delta;
+        document.getElementById('race-time').textContent = raceTime.toFixed(1);
+    }
+    
     // Update player movement
     updatePlayerMovement();
     
@@ -783,5 +1091,83 @@ function animate() {
     renderer.render(scene, camera);
 }
 
+// Create a visible path between two points with road-like appearance
+function createVisiblePath(startPoint, endPoint, isActive) {
+    // Create a curve between the points
+    const curve = new THREE.LineCurve3(
+        new THREE.Vector3(startPoint.x, startPoint.y, startPoint.z),
+        new THREE.Vector3(endPoint.x, endPoint.y, endPoint.z)
+    );
+    
+    // Create tube geometry along the curve
+    const tubeGeometry = new THREE.TubeGeometry(curve, 20, 3, 8, false);
+    const tubeMaterial = new THREE.MeshLambertMaterial({
+        color: isActive ? ACTIVE_BRANCH_COLOR : INACTIVE_BRANCH_COLOR,
+        transparent: true,
+        opacity: 0.7
+    });
+    
+    const tube = new THREE.Mesh(tubeGeometry, tubeMaterial);
+    tube.castShadow = true;
+    tube.receiveShadow = true;
+    scene.add(tube);
+    
+    // Add to track segments for collision detection
+    trackSegments.push({
+        start: startPoint.clone(),
+        end: endPoint.clone(),
+        mesh: tube
+    });
+    
+    // Add boost zones along the path
+    if (isActive && Math.random() < 0.3) { // 30% chance for a boost on active paths
+        const t = Math.random() * 0.6 + 0.2; // Position between 20% and 80% along the path
+        const boostPosition = new THREE.Vector3().lerpVectors(startPoint, endPoint, t);
+        
+        // Create boost zone
+        const boostGeometry = new THREE.TorusGeometry(5, 1, 16, 32);
+        const boostMaterial = new THREE.MeshLambertMaterial({
+            color: BOOST_COLOR,
+            emissive: BOOST_COLOR,
+            emissiveIntensity: 0.5,
+            transparent: true,
+            opacity: 0.7
+        });
+        
+        const boostZone = new THREE.Mesh(boostGeometry, boostMaterial);
+        boostZone.position.copy(boostPosition);
+        
+        // Orient the ring perpendicular to the path
+        const direction = new THREE.Vector3().subVectors(endPoint, startPoint).normalize();
+        const up = new THREE.Vector3(0, 0, 1);
+        const axis = new THREE.Vector3().crossVectors(up, direction).normalize();
+        const angle = Math.acos(up.dot(direction));
+        boostZone.setRotationFromAxisAngle(axis, angle);
+        
+        scene.add(boostZone);
+        boostZones.push(boostZone);
+    }
+    
+    return tube;
+}
+
+// Check if player has collided with any nodes
+function checkNodeCollisions() {
+    if (!player) return;
+    
+    // Check distance to all nodes
+    for (const id in nodeMap) {
+        const node = nodeMap[id];
+        const distance = player.position.distanceTo(node.position);
+        
+        // If close enough, consider it a collision
+        if (distance < NODE_SIZE * 2) {
+            handleNodeCollision(node);
+            break;
+        }
+    }
+}
+
 // Initialize when the DOM is ready
+document.addEventListener('DOMContentLoaded', init); 
 document.addEventListener('DOMContentLoaded', init); 

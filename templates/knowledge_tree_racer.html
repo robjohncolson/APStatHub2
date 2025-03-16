@@ -16,6 +16,7 @@
         .player-color { background-color: #0066ff; }
         .target-color { background-color: #ff0000; }
         .path-color { background-color: #ffcc00; }
+        .boost-color { background-color: #00ffff; }
     </style>
 </head>
 <body>
@@ -28,27 +29,34 @@
     </div>
     
     <div class="legend">
-        <h5>Legend</h5>
+        <h5>Racing Legend</h5>
         <div class="legend-item">
             <div class="legend-color player-color"></div>
-            <span>Your Position</span>
+            <span>Your Car</span>
         </div>
         <div class="legend-item">
             <div class="legend-color target-color"></div>
-            <span>Target Problem</span>
+            <span>Target Problem (Finish Line)</span>
         </div>
         <div class="legend-item">
             <div class="legend-color path-color"></div>
-            <span>Path to Target</span>
+            <span>Suggested Racing Path</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color boost-color"></div>
+            <span>Boost Ring (Drive Through for Speed Boost)</span>
         </div>
         <div class="legend-item">
             <div class="legend-color active-branch"></div>
-            <span>Active Topic (Has Problems)</span>
+            <span>Active Track (Has Problems)</span>
         </div>
         <div class="legend-item">
             <div class="legend-color inactive-branch"></div>
-            <span>Inactive Topic (No Problems)</span>
+            <span>Inactive Track (No Problems)</span>
         </div>
+        <p class="mt-2 small">
+            <strong>Tip:</strong> Use Shift to drift for sharper turns. Drive through blue boost rings for temporary speed boosts!
+        </p>
     </div>
     
     <!-- Three.js library -->
