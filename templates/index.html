@@ -4,6 +4,7 @@
         <head>
             <title>AP Statistics Problems</title>
             <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
             <style>
                 .problem-card { margin-bottom: 15px; }
                 .problem-image { max-width: 100%; height: auto; }
@@ -24,6 +25,9 @@
                     <div class="col">
                         <a href="{{ url_for('topics') }}" class="btn btn-primary">View Knowledge Tree</a>
                         <a href="{{ url_for('search') }}" class="btn btn-secondary">Search</a>
+                        <a href="{{ url_for('knowledge_tree_3d') }}" class="btn btn-success">
+                            <i class="bi bi-diagram-3"></i> View 3D Knowledge Tree
+                        </a>
                     </div>
                 </div>
                 

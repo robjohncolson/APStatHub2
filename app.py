@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, jsonify
 import sqlite3
 import os
 import re
@@ -681,6 +681,95 @@ def search():
                           problems=problems, 
                           topics=topics)
 
+@app.route('/api/knowledge_tree_data')
+def knowledge_tree_data():
+    """API endpoint to provide knowledge tree data for 3D visualization."""
+    conn = get_db_connection()
+    
+    # Get all units
+    units = conn.execute('SELECT * FROM units ORDER BY unit_number').fetchall()
+    
+    # Build the tree structure
+    tree_data = {
+        'units': []
+    }
+    
+    for unit in units:
+        unit_data = {
+            'unit_id': unit['unit_id'],
+            'unit_number': unit['unit_number'],
+            'unit_name': unit['unit_name'],
+            'has_problems': False,  # Will be set to True if any topic has problems
+            'topics': []
+        }
+        
+        # Get topics for this unit
+        topics = conn.execute(
+            'SELECT * FROM topics WHERE unit_id = ? ORDER BY topic_number', 
+            (unit['unit_id'],)
+        ).fetchall()
+        
+        for topic in topics:
+            # Check if this topic has any problems
+            problems_count = conn.execute('''
+                SELECT COUNT(*) as count
+                FROM problem_topics pt
+                JOIN problems p ON pt.problem_id = p.problem_id
+                WHERE pt.topic_id = ?
+            ''', (topic['topic_id'],)).fetchone()['count']
+            
+            has_problems = problems_count > 0
+            
+            # If this topic has problems, mark the unit as having problems too
+            if has_problems:
+                unit_data['has_problems'] = True
+            
+            topic_data = {
+                'topic_id': topic['topic_id'],
+                'topic_number': topic['topic_number'],
+                'topic_name': topic['topic_name'],
+                'has_problems': has_problems,
+                'problems': []
+            }
+            
+            # If this topic has problems, get them
+            if has_problems:
+                problems = conn.execute('''
+                    SELECT p.*, pt.relevance_score
+                    FROM problems p
+                    JOIN problem_topics pt ON p.problem_id = pt.problem_id
+                    WHERE pt.topic_id = ?
+                    ORDER BY p.year DESC, p.problem_number
+                ''', (topic['topic_id'],)).fetchall()
+                
+                for problem in problems:
+                    # Extract display name
+                    if 'problem_type' in problem.keys() and problem['problem_type'] and 'problem_num' in problem.keys() and problem['problem_num']:
+                        display_name = f"{problem['year']} {problem['problem_type']} #{problem['problem_num']}"
+                    else:
+                        display_name = problem['problem_number']
+                    
+                    problem_data = {
+                        'problem_id': problem['problem_id'],
+                        'filename': problem['problem_number'],
+                        'display_name': display_name,
+                        'relevance_score': problem['relevance_score']
+                    }
+                    
+                    topic_data['problems'].append(problem_data)
+            
+            unit_data['topics'].append(topic_data)
+        
+        tree_data['units'].append(unit_data)
+    
+    conn.close()
+    return jsonify(tree_data)
+
+@app.route('/knowledge_tree_3d')
+def knowledge_tree_3d():
+    """Page showing the 3D visualization of the knowledge tree."""
+    return render_template('knowledge_tree_3d.html')
+
 if __name__ == '__main__':
     # Create templates directory if it doesn't exist
     if not os.path.exists('templates'):
@@ -694,6 +783,7 @@ if __name__ == '__main__':
         <head>
             <title>AP Statistics Problems</title>
             <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
             <style>
                 .problem-card { margin-bottom: 15px; }
                 .problem-image { max-width: 100%; height: auto; }
@@ -714,6 +804,9 @@ if __name__ == '__main__':
                     <div class="col">
                         <a href="{{ url_for('topics') }}" class="btn btn-primary">View Knowledge Tree</a>
                         <a href="{{ url_for('search') }}" class="btn btn-secondary">Search</a>
+                        <a href="{{ url_for('knowledge_tree_3d') }}" class="btn btn-success">
+                            <i class="bi bi-diagram-3"></i> View 3D Knowledge Tree
+                        </a>
                     </div>
                 </div>
                 
@@ -1200,6 +1293,61 @@ if __name__ == '__main__':
                     <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Problems</a>
                 </div>
             </div>
+        </body>
+        </html>
+        ''',
+        
+        'knowledge_tree_3d.html': '''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>AP Statistics Knowledge Tree - 3D Visualization</title>
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+            <style>
+                body { margin: 0; overflow: hidden; }
+                #tree-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+                .controls { position: absolute; top: 10px; left: 10px; z-index: 100; background: rgba(255,255,255,0.7); padding: 10px; border-radius: 5px; }
+                .legend { position: absolute; bottom: 10px; left: 10px; z-index: 100; background: rgba(255,255,255,0.7); padding: 10px; border-radius: 5px; }
+                .legend-item { display: flex; align-items: center; margin-bottom: 5px; }
+                .legend-color { width: 20px; height: 20px; margin-right: 10px; border-radius: 50%; }
+                .active-branch { background-color: #00aa00; }
+                .inactive-branch { background-color: #aaaaaa; }
+                .highlight { background-color: #ff9900; }
+            </style>
+        </head>
+        <body>
+            <div id="tree-container"></div>
+            
+            <div class="controls">
+                <a href="{{ url_for('index') }}" class="btn btn-primary">Back to Problems</a>
+                <a href="{{ url_for('topics') }}" class="btn btn-secondary">View Knowledge Tree</a>
+            </div>
+            
+            <div class="legend">
+                <h5>Legend</h5>
+                <div class="legend-item">
+                    <div class="legend-color active-branch"></div>
+                    <span>Active Topic (Has Problems)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color inactive-branch"></div>
+                    <span>Inactive Topic (No Problems)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color highlight"></div>
+                    <span>Selected Node</span>
+                </div>
+                <p class="mt-2">
+                    <small>Tip: Click on a topic node to view its problems, or click on a problem node to view its details.</small>
+                </p>
+            </div>
+            
+            <!-- Three.js library -->
+            <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+            
+            <!-- Knowledge Tree Visualization Script -->
+            <script src="{{ url_for('static', filename='knowledge_tree_3d.js') }}"></script>
         </body>
         </html>
         '''
