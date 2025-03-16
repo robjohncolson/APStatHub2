@@ -1,0 +1,21 @@
+Exam (Assumed)	Q#	Type	Topics (Unit.Sub-Branch)	Question Text Summary
+Unknown	5	MCQ	6.4, 6.2 (test statistic for a proportion)	Landline telephone survey (calculate the test statistic)
+Unknown	20	MCQ	6.8 (confidence interval for the difference of two proportions)	Sociologist study on primary wage earner (identify the correct confidence interval formula)
+Unknown	22	MCQ	6.5, 6.6 (interpreting a p-value)	VOC emissions from carpet (interpret the p-value)
+Unknown	23	MCQ	6.2 (margin of error for a proportion, effect of sample size)	Confidence intervals for a proportion (compare margins of error for different sample sizes)
+Unknown	28	MCQ	6.2 (comparing confidence intervals)	Organic produce sales (compare confidence intervals from different samples)
+Unknown	36	MCQ	7.7	Power of a Test
+Unknown	39	MCQ	6.2 (interpreting a confidence interval)	Health care satisfaction survey (interpret a confidence interval)
+Unknown	40	MCQ	6.9, 6.5 (hypothesis test for the difference of two proportions, interpreting p-value)	Trans fat ban survey (interpret results of a hypothesis test)
+Unknown	21	MCQ	Inference Analysis	Raffle ticket results
+Unknown	26	MCQ	6.2, 6.4, 6.5, 6.6 (hypothesis test for a proportion, interpreting p-value)
+Unknown	29	MCQ	6.2 (confidence interval for a proportion)	City council proposal support (identify the correct confidence interval)
+Unknown	31	MCQ	6.2 (margin of error for a proportion)	News organization survey (calculate the margin of error)
+Unknown	33	MCQ	6.2 (interpreting margin of error)	Sunscreen usage survey (interpret the meaning of the margin of error)
+Unknown	39	MCQ	6.6, (Power of a test)	Doctor's diagnostic Test, definition of power
+Unknown FRQ	6(a-f)	FRQ	5.5, 6.2, Inference	Lightbulb Defects, repeat
+Unknown	14	MCQ	6.2 (effect of sample proportion on confidence interval width)	Biologist tree study (effect of miscalculated sample proportion on confidence interval)
+Unknown	15	MCQ	6.2, 6.5	Hypothesis test conclusion
+Unknown	29	MCQ	6.7 (Type II error)	Hypothesis test for a mean (identify a Type II error)
+Unknown	32	MCQ	6.2 (confidence interval for a proportion)	E-reader ownership (identify the correct confidence interval formula)
+Unknown	38	MCQ	6.8 (standard error for the difference of two proportions)	Genetically modified food survey (identify the correct standard error formula)

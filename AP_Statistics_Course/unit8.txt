@@ -1,0 +1,4 @@
+26	MCQ	- Unit 6: Inference for Categorical Data: Proportions <br> - 6.10 Setting Up a Test for the Difference of Two Population Proportions <br> -6.4 Setting up a test for Population Proportions<br> - Unit 8 8.4 Expected counts in a two way table
+8	MCQ	- Unit 8: Inference for Categorical Data: Chi-Square <br> - 8.2 Setting Up a Chi-Square Goodness of Fit Test <br> - 8.3 Carrying Out a Chi-Square Test for Goodness of Fit <br> -8.4 Expected Counts in two-way table
+40	MCQ	- Unit 8: Inference for Categorical Data: Chi-Square <br> - 8.5 Setting Up a Chi-Square Test for Homogeneity or Independence <br> - 8.6 Carrying Out a Chi-Square Test for Homogeneity or Independence<br> -8.4 Expected Counts in two-way table
+39	MCQ	- Unit 8: Inference for Categorical Data: Chi-Square <br> - 8.5 Setting Up a Chi-Square Test for Homogeneity or Independence <br> - 8.6 Carrying Out a Chi-Square Test for Homogeneity or Independence

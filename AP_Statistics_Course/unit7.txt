@@ -1,0 +1,22 @@
+Problem #	Type	Correlated Topics (Unit.Topic)
+2	FRQ	3.3, 3.5, 3.7, 7.1, 7.7, 7.8, 7.9, General Power Concepts
+4	FRQ	1.7, 7.1, 7.2, 7.6
+6	FRQ	1.6, 1.7, 1.8, 4.8, 5.7, 6.5, 6.6, 7.4, 7.5
+11	MCQ	7.2
+17	MCQ	6.5, 7.2, 7.3, 7.4
+38	MCQ	3.7, 7.1, 7.5, 7.9
+4 (Free Response)	MCQ	3.5, 3.6, 7.2, 7.6
+6	MCQ	7.1, 7.2 (Specifically understanding the factors affecting margin of error in a confidence interval)
+17	MCQ	3.5, 3.6, 7.8, 7.9 (Choosing the correct test statistic for a difference in means; recognizing a paired vs. independent samples situation)
+20	MCQ	7.2 (Calculating a confidence interval for a population mean)
+23	MCQ	3.5, 3.6, 7.9 (Identifying the appropriate hypothesis test - matched pairs t-test)
+34	MCQ	6.5, 6.6, 7.4, 7.5, (Interpreting a p-value and drawing a conclusion in a hypothesis test)
+36	MCQ	6.5, 6.6, 7.3 (Relating a confidence interval to a hypothesis test; interpreting a confidence interval in context)
+4	FRQ	7.2 (Constructing and interpreting a confidence interval)
+23 (Duplicated Number, School Parking Lots)	MCQ	3.5, 3.6, 7.8, 7.9 (Choosing correct test; matched pairs t-test.)
+25	MCQ	7.4, 7.5, 6.5, 6.6 (Carrying out a hypothesis test for population mean)
+30	MCQ	7.6, 7.7 (Interpreting two-sample t-interval)
+34 (Duplicated number, Cinnamon Study)	MCQ	3.5, 3.6, 6.2, 6.8, 6.9 (Two-sample z-test for a difference in proportions.)
+36(Duplicated Number, Test of Hypothesis)	MCQ	6.5, 7.5 (one-tailed vs two-tailed alternatives.)
+40	MCQ	7.2, 7.3 (Interpreting a confidence interval)
+6 (Keyboard FRQ)	FRQ	1.6, 1.9, 3.5, 3.6, 7.9, (Non-parametric tests, specifically the Wilcoxon Rank Sum Test, are beyond the scope of the provided AP Statistics curriculum, but the question highlights the assumptions of parametric tests. Key concepts are comparing distributions and identifying appropriate statistical methods.)

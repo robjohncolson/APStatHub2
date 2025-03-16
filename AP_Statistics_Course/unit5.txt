@@ -1,0 +1,17 @@
+Exam (Assumed)	Q#	Type	Topics (Unit.Sub-Branch)	Question Text Summary
+Unknown FRQ	5a	FRQ	3.3 (simple random sampling)	Automobile manufacturer (describe a simple random sampling plan)
+Unknown FRQ	5b	FRQ	Inference Justification (why a sample proportion isn't a good population estimate)	Automobile manufacturer (explain why a sample proportion shouldn't be used to estimate a specific population proportion)
+Unknown FRQ	5c	FRQ	Point Estimate Calculation	Automobile manufacturer (calculate a point estimate)
+Unknown	21	MCQ	5.4 (effect of sample size on bias and variance)	Carry-on bag weights (effect of increasing sample size)
+Unknown	30	MCQ	5.3, 5.7 (Central Limit Theorem, sampling distributions)	Gas station purchases (describe the sampling distribution of the sample mean)
+Unknown	4	MCQ	3.3 (stratified random sampling)	Math/science program (identify a stratified random sample)
+Unknown	27	MCQ	5.3, 5.7 (Central Limit Theorem, effect of sample size)	Sampling distribution simulations (order graphs by sample size)
+Unknown	30	MCQ	5.3	Central Limit Justification
+Unknown	37	MCQ	5.6, 5.8, 4.3	Two Country Marriage
+Unknown FRQ	1a, 1b, 1c	FRQ	1.6, 1.9, 5.7, 5.3	Biology spreadsheet histograms (identify distributions, combined distribution shape, sampling distribution of sample mean) - This is a repeat of a previous FRQ
+Unknown FRQ	6(a-f)	FRQ	5.5, 6.2 and concepts related to inference	Lightbulb defects
+Unknown	13	MCQ	5.3, 5.7, 1.5	Sampling Distribution Identification
+Unknown	18	MCQ	5.5, 5.3	Sample Proportion distribution
+Unknown	22	MCQ	5.7, 5.3	Sample Mean, Sampling Distribution
+Unknown	31	MCQ	5.4	Sample Variance
+Unknown FRQ	5a, 5b, 5c	FRQ	4.10, 4.3, 4.12, 4.3, 5.5, 6.2	Sasha - repeat

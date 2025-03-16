@@ -1,0 +1,25 @@
+Unknown FRQ	3a	FRQ	4.3 (basic probability, outcomes)	Women's tennis match (list possible winning sequences)
+Unknown FRQ	3b	FRQ	4.3, 4.5 (conditional probability)	Women's tennis match (calculate probability of Player V winning)
+Unknown FRQ	3c	FRQ	4.3	Women's tennis match (probability of a 3-set match given Player V wins)
+Unknown FRQ	3d	FRQ	4.8 (expected value)	Women's tennis, expected number of sets.
+Unknown	7	MCQ	4.3, 4.5 (conditional probability, tree diagram - implicit)	Tropical storm classification (calculate probability of Pacific origin AND major)
+Unknown	8	MCQ	1.7 (effects of linear transformations on standard deviation)	Body temperature standard deviation (Celsius to Fahrenheit)
+Unknown	25	MCQ	4.8, 1.7 (mean/expected value from a distribution)	Concert ticket purchases (calculate mean cost per customer)
+Unknown	32	MCQ	4.3 (probability of "at least one")	Customer service department (probability of at least one customer needing help finding an item)
+Unknown	34	MCQ	4.9, 4.8 (combining random variables)	Computer card game (calculate expected value and standard deviation of combined score)
+Unknown	9	MCQ	4.9	Combining Random variables
+Unknown	19	MCQ	4.10 (binomial), 4.8, 4.3	Archery probability (probability of hitting inner ring less than the mean)
+Unknown	25	MCQ	1.10 (normal distribution, percentages)	Smartphone assembly times (percentage between two values)
+Unknown	35	MCQ	1.10, 4.3 (normal distribution, probabilities)	Lake water level (probability of water level being at least 90 feet)
+Unknown FRQ	3a, 3b, 3c	FRQ	4.3	Probability and Sampling
+Unknown FRQ	6	FRQ	5.5, 6.2, and Concepts related to inference testing.
+Unknown	2	MCQ	2.3, 4.5 (conditional probability from a two-way table)	Library expansion support (calculate conditional probability)
+Unknown	6	MCQ	1.10 (normal distribution, percentiles)	Galápagos tortoise lifespan (find age at 90th percentile)
+Unknown	10	MCQ	1.10, 4.5 (normal distribution, conditional probability)	Hospital volunteer hours (conditional probability involving normal distribution)
+Unknown	17	MCQ	4.9, 1.10 (combining normal random variables)	Sean and Evan's income (probability of Sean having greater income)
+Unknown	26	MCQ	4.8 (expected value from a discrete distribution)	Traffic congestion (calculate mean number of people in cars)
+Unknown	28	MCQ	4.12, 4.3 (geometric distribution, probability)	Eight-sided die (probability of at least 2 tosses before blue)
+Unknown	37	MCQ	4.9	Combining Random variables, dependence
+Unknown FRQ	5a	FRQ	4.10, 4.3 (binomial distribution, "at least one")	Sasha's traffic delay (probability of at least 3 delays in 21 days)
+Unknown FRQ	5b	FRQ	4.12, 4.3 (geometric distribution)	Sasha's traffic delay (probability of first delay after the fifth day)
+Unknown FRQ	5c	FRQ	5.5, (and link to 6.2 - normal approx. to binomial)	Sasha's traffic delay (is the sampling distribution of the sample proportion approximately normal?)

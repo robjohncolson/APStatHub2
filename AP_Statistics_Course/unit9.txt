@@ -1,0 +1,8 @@
+Problem #	Type	Correlated Topics
+1	MCQ	Unit 9: 9.5 Carrying Out a Test for the Slope of a Regression Model, Unit 6: 6.5 Interpreting p-Values, 6.6 Concluding a Test for a Population Proportion (concepts of hypothesis testing and p-values apply broadly, even though this is a regression context)
+2	MCQ	Unit 9: 9.2 Confidence Intervals for the Slope of a Regression Model
+3	MCQ	Unit 7: 7.6 Confidence Intervals for the Difference of Two Means, also arguably best practice to use paired t-test. The question stem indicates a focus on the procedure selection, making Unit 7 skills.
+4	MCQ	Unit 9: 9.2 Confidence Intervals for the Slope of a Regression Model
+5	MCQ	Unit 9: 9.2 Confidence Intervals for the Slope of a Regression Model
+6 (a)	FRQ	Unit 9: 9.2 Confidence Intervals for the Slope of a Regression Model, 9.3 Justifying a Claim About the Slope of a Regression Model Based on a Confidence Interval
+6 (b)	FRQ	Unit 9: 9.3 Justifying a Claim About the Slope of a Regression Model Based on a Confidence Interval, 2.6 Linear Regression Models (understanding the relationship between slope and the variables)
