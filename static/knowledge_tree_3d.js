@@ -6,14 +6,14 @@ let scene, camera, renderer, controls;
 let treeRoot, nodeMap = {};
 let raycaster, mouse;
 let tooltipDiv;
-let highlightedObjects = []; // Track highlighted nodes and branches
-let allNodes = []; // All draggable nodes
-let springs = []; // Spring connections between nodes
-let branches = []; // Visual branches (lines)
-let uncategorizedNodes = []; // Nodes without connections
-let clock; // For physics timing
-let dragControls; // Drag controls for nodes
-let keyboardControls = { enabled: true }; // Keyboard controls state
+let highlightedObjects = [];
+let allNodes = [];
+let springs = [];
+let branches = [];
+let uncategorizedNodes = [];
+let clock;
+let dragControls;
+let keyboardControls = { enabled: true };
 
 // Constants for tree layout and physics
 const NODE_SIZE = 5;
@@ -23,10 +23,12 @@ const BRANCH_COLOR = 0x555555;
 const ACTIVE_BRANCH_COLOR = 0x00aa00;
 const INACTIVE_BRANCH_COLOR = 0xaaaaaa;
 const HIGHLIGHT_COLOR = 0xff9900;
-const SPRING_CONSTANT = 0.1; // Stiffness of springs
-const DAMPING = 0.99; // Damping factor for physics
-const KEYBOARD_MOVE_SPEED = 10; // Speed for keyboard movement
-const KEYBOARD_ZOOM_SPEED = 50; // Speed for keyboard zooming
+const SPRING_CONSTANT = 0.1;
+const DAMPING = 0.99;
+const KEYBOARD_MOVE_SPEED = 10;
+const KEYBOARD_ZOOM_SPEED = 50;
+const UNIT_HEIGHT_MIN = -400; // Lowest height for Unit 1
+const UNIT_HEIGHT_MAX = 400;  // Highest height for Unit 9
 
 // Initialize the visualization
 function init() {
@@ -36,7 +38,6 @@ function init() {
     setupInteraction();
     setupKeyboardControls();
     
-    // Add a test cube to verify renderer is working
     const cube = new THREE.Mesh(
         new THREE.BoxGeometry(20, 20, 20),
         new THREE.MeshBasicMaterial({ color: 0xff0000 })
@@ -49,7 +50,7 @@ function init() {
     animate();
 }
 
-// Create tooltip div for displaying node information on hover
+// Create tooltip div
 function createTooltip() {
     tooltipDiv = document.createElement('div');
     tooltipDiv.className = 'tooltip';
@@ -67,7 +68,7 @@ function createTooltip() {
     console.log('Tooltip created');
 }
 
-// Set up the Three.js scene, camera, renderer, and controls
+// Set up scene, camera, renderer, and controls
 function setupScene() {
     console.log('Setting up scene...');
     console.log('Window size:', window.innerWidth, window.innerHeight);
@@ -76,7 +77,7 @@ function setupScene() {
     scene.background = new THREE.Color(0xf0f0f0);
     
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 5000);
-    camera.position.set(0, 100, 500);
+    camera.position.set(0, 0, 1000); // Adjusted for larger vertical spread
     
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -89,13 +90,9 @@ function setupScene() {
     container.appendChild(renderer.domElement);
     console.log('Renderer added to container');
     
-    // Check if OrbitControls is available
     if (typeof THREE.OrbitControls === 'undefined') {
-        console.error('THREE.OrbitControls is not defined! Make sure you include the OrbitControls.js script.');
-        // Create a basic control if OrbitControls is not available
-        controls = {
-            update: function() {}
-        };
+        console.error('THREE.OrbitControls is not defined!');
+        controls = { update: function() {} };
     } else {
         controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
@@ -109,7 +106,6 @@ function setupScene() {
     directionalLight.position.set(1, 1, 1).normalize();
     scene.add(directionalLight);
     
-    // Add a bright light to ensure visibility
     const pointLight = new THREE.PointLight(0xffffff, 1, 1000);
     pointLight.position.set(0, 0, 200);
     scene.add(pointLight);
@@ -118,9 +114,8 @@ function setupScene() {
     console.log('Scene setup complete');
 }
 
-// Set up keyboard controls for navigation
+// Keyboard controls setup (unchanged)
 function setupKeyboardControls() {
-    // Create keyboard controls help div
     const helpDiv = document.createElement('div');
     helpDiv.className = 'keyboard-controls-help';
     helpDiv.style.position = 'absolute';
@@ -144,76 +139,43 @@ function setupKeyboardControls() {
     `;
     document.body.appendChild(helpDiv);
     
-    // Add keyboard event listeners
     window.addEventListener('keydown', handleKeyDown);
-    
     console.log('Keyboard controls setup complete');
 }
 
-// Handle keyboard input for navigation
+// Handle keyboard input (unchanged)
 function handleKeyDown(event) {
     if (!keyboardControls.enabled) return;
-    
     const key = event.key.toLowerCase();
-    
-    // Movement controls
     switch (key) {
-        case 'w': // Forward
-            camera.position.z -= KEYBOARD_MOVE_SPEED;
-            break;
-        case 's': // Backward
-            camera.position.z += KEYBOARD_MOVE_SPEED;
-            break;
-        case 'a': // Left
-            camera.position.x -= KEYBOARD_MOVE_SPEED;
-            break;
-        case 'd': // Right
-            camera.position.x += KEYBOARD_MOVE_SPEED;
-            break;
-        case 'q': // Up
-            camera.position.y += KEYBOARD_MOVE_SPEED;
-            break;
-        case 'e': // Down
-            camera.position.y -= KEYBOARD_MOVE_SPEED;
-            break;
-        case '+': // Zoom in
-        case '=': // Also zoom in (same key on most keyboards)
-            camera.position.z -= KEYBOARD_ZOOM_SPEED;
-            break;
-        case '-': // Zoom out
-        case '_': // Also zoom out (shift + minus)
-            camera.position.z += KEYBOARD_ZOOM_SPEED;
-            break;
-        case 'r': // Reset view
-            resetCamera();
-            break;
-        case 'k': // Toggle keyboard controls
-            toggleKeyboardControls();
-            break;
+        case 'w': camera.position.z -= KEYBOARD_MOVE_SPEED; break;
+        case 's': camera.position.z += KEYBOARD_MOVE_SPEED; break;
+        case 'a': camera.position.x -= KEYBOARD_MOVE_SPEED; break;
+        case 'd': camera.position.x += KEYBOARD_MOVE_SPEED; break;
+        case 'q': camera.position.y += KEYBOARD_MOVE_SPEED; break;
+        case 'e': camera.position.y -= KEYBOARD_MOVE_SPEED; break;
+        case '+': case '=': camera.position.z -= KEYBOARD_ZOOM_SPEED; break;
+        case '-': case '_': camera.position.z += KEYBOARD_ZOOM_SPEED; break;
+        case 'r': resetCamera(); break;
+        case 'k': toggleKeyboardControls(); break;
     }
-    
-    // Update controls target if needed
-    if (controls.target) {
-        controls.update();
-    }
+    if (controls.target) controls.update();
 }
 
-// Reset camera to initial position
+// Reset camera
 function resetCamera() {
-    camera.position.set(0, 100, 500);
+    camera.position.set(0, 0, 1000);
     if (controls.target) {
-        controls.target.set(0, -LEVEL_HEIGHT, 0);
+        controls.target.set(0, 0, 0);
         controls.update();
     }
     console.log('Camera reset to initial position');
 }
 
-// Toggle keyboard controls on/off
+// Toggle keyboard controls (unchanged)
 function toggleKeyboardControls() {
     keyboardControls.enabled = !keyboardControls.enabled;
     const status = keyboardControls.enabled ? 'enabled' : 'disabled';
-    
-    // Show temporary notification
     const notification = document.createElement('div');
     notification.style.position = 'absolute';
     notification.style.top = '50%';
@@ -227,55 +189,43 @@ function toggleKeyboardControls() {
     notification.style.pointerEvents = 'none';
     notification.textContent = `Keyboard controls ${status}`;
     document.body.appendChild(notification);
-    
-    // Remove notification after 2 seconds
-    setTimeout(() => {
-        document.body.removeChild(notification);
-    }, 2000);
-    
+    setTimeout(() => document.body.removeChild(notification), 2000);
     console.log(`Keyboard controls ${status}`);
 }
 
-// Set up interaction (raycasting for node selection)
+// Interaction setup (unchanged)
 function setupInteraction() {
     raycaster = new THREE.Raycaster();
     mouse = new THREE.Vector2();
-    
     renderer.domElement.addEventListener('mousemove', onMouseMove, false);
     renderer.domElement.addEventListener('click', onMouseClick, false);
     console.log('Interaction setup complete');
 }
 
-// Handle window resize
+// Window resize handler (unchanged)
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-// Handle mouse movement for hovering effects
+// Mouse movement handler (unchanged)
 function onMouseMove(event) {
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-    
     tooltipDiv.style.left = event.clientX + 10 + 'px';
     tooltipDiv.style.top = event.clientY + 10 + 'px';
-    
     checkIntersections();
 }
 
-// Handle mouse clicks for node selection
+// Mouse click handler (unchanged)
 function onMouseClick(event) {
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-    
     raycaster.setFromCamera(mouse, camera);
-    
     const intersects = raycaster.intersectObjects(scene.children, true);
-    
     if (intersects.length > 0) {
         const object = intersects[0].object;
-        
         if (object.userData && object.userData.id) {
             const nodeId = object.userData.id;
             if (object.userData.type === 'topic' && object.userData.hasProblems) {
@@ -287,15 +237,12 @@ function onMouseClick(event) {
     }
 }
 
-// Check for intersections with nodes for hover effects
+// Intersection checking (unchanged)
 function checkIntersections() {
     raycaster.setFromCamera(mouse, camera);
-    
     const intersects = raycaster.intersectObjects(scene.children, true);
-    
     if (intersects.length > 0) {
         const object = intersects[0].object;
-        
         if (object.userData && object.userData.id) {
             highlightImmediatePath(object);
             tooltipDiv.innerHTML = object.userData.tooltip;
@@ -303,9 +250,9 @@ function checkIntersections() {
         }
     } else {
         highlightedObjects.forEach(obj => {
-            if (obj.userData.type) { // Node
+            if (obj.userData.type) {
                 obj.material.color.setHex(obj.userData.isActive ? ACTIVE_BRANCH_COLOR : INACTIVE_BRANCH_COLOR);
-            } else { // Branch
+            } else {
                 obj.material.color.setHex(obj.userData.isActive ? ACTIVE_BRANCH_COLOR : INACTIVE_BRANCH_COLOR);
             }
         });
@@ -314,35 +261,31 @@ function checkIntersections() {
     }
 }
 
-// Highlight the node, its parent, and the connecting branch
+// Highlight path (unchanged)
 function highlightImmediatePath(node) {
     highlightedObjects.forEach(obj => {
-        if (obj.userData.type) { // Node
+        if (obj.userData.type) {
             obj.material.color.setHex(obj.userData.isActive ? ACTIVE_BRANCH_COLOR : INACTIVE_BRANCH_COLOR);
-        } else { // Branch
+        } else {
             obj.material.color.setHex(obj.userData.isActive ? ACTIVE_BRANCH_COLOR : INACTIVE_BRANCH_COLOR);
         }
     });
     highlightedObjects = [];
-    
     node.material.color.setHex(HIGHLIGHT_COLOR);
     highlightedObjects.push(node);
-    
     if (node.userData.parent) {
         const parent = node.userData.parent;
         const branch = node.userData.incomingBranch;
-        
         if (branch) {
             branch.material.color.setHex(HIGHLIGHT_COLOR);
             highlightedObjects.push(branch);
         }
-        
         parent.material.color.setHex(HIGHLIGHT_COLOR);
         highlightedObjects.push(parent);
     }
 }
 
-// Load knowledge tree data from the server
+// Load data (unchanged)
 function loadKnowledgeTreeData() {
     console.log('Loading knowledge tree data...');
     fetch('/api/knowledge_tree_data')
@@ -358,7 +301,6 @@ function loadKnowledgeTreeData() {
         })
         .catch(error => {
             console.error('Error loading knowledge tree data:', error);
-            // Add a message to the container
             const container = document.getElementById('tree-container');
             if (container) {
                 const errorMsg = document.createElement('div');
@@ -376,7 +318,7 @@ function loadKnowledgeTreeData() {
         });
 }
 
-// Build the 3D tree from the data
+// Build the 3D tree with varying heights
 function buildTree(data) {
     console.log('Building tree from data...');
     treeRoot = createNode({
@@ -397,11 +339,17 @@ function buildTree(data) {
     }
     
     console.log(`Building tree with ${units.length} units`);
-    const unitSpread = units.length * SIBLING_SPREAD / 2;
+    const numUnits = units.length;
+    const unitHeightStep = numUnits > 1 ? (UNIT_HEIGHT_MAX - UNIT_HEIGHT_MIN) / (numUnits - 1) : 0;
+    const unitSpread = numUnits * SIBLING_SPREAD / 2;
+    
+    // Count total topics for height zone distribution
+    const totalTopics = units.reduce((sum, unit) => sum + unit.topics.length, 0);
+    const topicHeightRange = LEVEL_HEIGHT * 0.8; // Use 80% of LEVEL_HEIGHT per unit for topics
     
     units.forEach((unit, unitIndex) => {
+        const unitY = UNIT_HEIGHT_MIN + unitIndex * unitHeightStep;
         const unitX = (unitIndex * SIBLING_SPREAD) - unitSpread;
-        const unitY = -LEVEL_HEIGHT;
         
         const numProblems = unit.topics.reduce((sum, topic) => sum + (topic.problems ? topic.problems.length : 0), 0);
         const unitNode = createNode({
@@ -422,10 +370,13 @@ function buildTree(data) {
         
         const topics = unit.topics;
         const topicSpread = topics.length * SIBLING_SPREAD / 2;
+        const numTopics = topics.length;
+        const topicSpacing = numTopics > 1 ? topicHeightRange / (numTopics - 1) : 0;
+        const topicBaseY = unitY - LEVEL_HEIGHT / 2; // Center topics below unit
         
         topics.forEach((topic, topicIndex) => {
             const topicX = unitX + ((topicIndex * SIBLING_SPREAD) - topicSpread);
-            const topicY = -LEVEL_HEIGHT * 2;
+            const topicY = topicBaseY - (numTopics - 1) * topicSpacing / 2 + topicIndex * topicSpacing;
             
             const topicNode = createNode({
                 id: topic.topic_id,
@@ -446,11 +397,10 @@ function buildTree(data) {
             if (topic.has_problems && topic.problems) {
                 const problems = topic.problems;
                 const problemSpread = problems.length * SIBLING_SPREAD / 2;
+                const problemY = topicY - LEVEL_HEIGHT / 2; // Place problems below topic
                 
                 problems.forEach((problem, problemIndex) => {
                     const problemX = topicX + ((problemIndex * SIBLING_SPREAD) - problemSpread);
-                    const problemY = -LEVEL_HEIGHT * 3;
-                    
                     const problemNode = createProblemNode({
                         id: problem.problem_id,
                         name: problem.display_name,
@@ -471,7 +421,7 @@ function buildTree(data) {
         });
     });
     
-    // Create uncategorized problem nodes
+    // Uncategorized problems
     if (data.uncategorized_problems) {
         data.uncategorized_problems.forEach(problem => {
             const problemNode = createProblemNode({
@@ -492,7 +442,7 @@ function buildTree(data) {
         });
     }
     
-    // Initialize DragControls for all nodes if available
+    // DragControls
     if (typeof THREE.DragControls !== 'undefined') {
         dragControls = new THREE.DragControls(allNodes, camera, renderer.domElement);
         dragControls.addEventListener('dragstart', function(event) {
@@ -500,58 +450,47 @@ function buildTree(data) {
         });
         dragControls.addEventListener('dragend', function(event) {
             event.object.userData.isDragging = false;
-            event.object.userData.velocity.set(0, 0, 0); // Reset velocity on release
+            event.object.userData.velocity.set(0, 0, 0);
         });
     } else {
-        console.warn('THREE.DragControls is not defined. Node dragging will not be available.');
+        console.warn('THREE.DragControls is not defined.');
     }
     
-    // Initialize clock for physics timing
     clock = new THREE.Clock();
-    
-    controls.target.set(0, -LEVEL_HEIGHT, 0);
+    controls.target.set(0, 0, 0);
     controls.update();
     
     console.log('Tree building complete. Scene has', scene.children.length, 'objects');
 }
 
-// Create a node sphere with the given data
+// Create node (unchanged)
 function createNode(data, level) {
     const geometry = new THREE.SphereGeometry(NODE_SIZE - level, 32, 32);
     const material = new THREE.MeshLambertMaterial({
         color: data.hasProblems ? ACTIVE_BRANCH_COLOR : INACTIVE_BRANCH_COLOR
     });
-    
     const node = new THREE.Mesh(geometry, material);
-    
     node.userData = data;
     node.userData.isActive = data.hasProblems;
     node.userData.velocity = new THREE.Vector3(0, 0, 0);
     node.userData.mass = 1;
     node.userData.isDragging = false;
     nodeMap[data.id] = node;
-    
     return node;
 }
 
-// Create a problem node with an image texture
+// Create problem node (unchanged)
 function createProblemNode(data) {
     const geometry = new THREE.PlaneGeometry(NODE_SIZE * 3, NODE_SIZE * 3);
     const textureLoader = new THREE.TextureLoader();
-    
-    // Use a fallback texture in case the image fails to load
     const fallbackMaterial = new THREE.MeshBasicMaterial({
         color: 0x3366cc,
         side: THREE.DoubleSide
     });
-    
     const node = new THREE.Mesh(geometry, fallbackMaterial);
-    
-    // Try to load the texture
     textureLoader.load(
         `/images/${data.filename}`,
         function(texture) {
-            // Texture loaded successfully
             node.material = new THREE.MeshBasicMaterial({
                 map: texture,
                 side: THREE.DoubleSide
@@ -560,63 +499,48 @@ function createProblemNode(data) {
         undefined,
         function(error) {
             console.warn(`Failed to load texture for ${data.filename}:`, error);
-            // Keep using the fallback material
         }
     );
-    
     node.userData = data;
     node.userData.isActive = true;
     node.userData.velocity = new THREE.Vector3(0, 0, 0);
     node.userData.mass = 1;
     node.userData.isDragging = false;
     nodeMap[data.id] = node;
-    
     return node;
 }
 
-// Create a branch (line) between two nodes
+// Create branch (unchanged)
 function createBranch(parentNode, childNode, isActive) {
     const material = new THREE.LineBasicMaterial({
         color: isActive ? ACTIVE_BRANCH_COLOR : INACTIVE_BRANCH_COLOR,
         linewidth: isActive ? 2 : 1
     });
-    
     const geometry = new THREE.BufferGeometry().setFromPoints([
         parentNode.position,
         childNode.position
     ]);
-    
     const line = new THREE.Line(geometry, material);
     line.userData.parentNode = parentNode;
     line.userData.childNode = childNode;
     line.userData.isActive = isActive;
     scene.add(line);
-    
-    // Set up parent-child relationship for highlighting
     childNode.userData.parent = parentNode;
     childNode.userData.incomingBranch = line;
-    
     return line;
 }
 
-// Animation loop with physics simulation
+// Animation loop (unchanged)
 function animate() {
     requestAnimationFrame(animate);
-    
-    // Log once to confirm animation is running
     if (!window.animationStarted) {
         console.log('Animation loop started');
         window.animationStarted = true;
     }
-    
     const deltaTime = clock ? clock.getDelta() : 0.016;
-    
-    // Physics step
     allNodes.forEach(node => {
         node.userData.totalForce = new THREE.Vector3(0, 0, 0);
     });
-    
-    // Apply spring forces
     springs.forEach(spring => {
         const nodeA = spring.nodeA;
         const nodeB = spring.nodeB;
@@ -630,8 +554,6 @@ function animate() {
             nodeB.userData.totalForce.sub(force);
         }
     });
-    
-    // Apply random forces to uncategorized nodes
     uncategorizedNodes.forEach(node => {
         const randomForce = new THREE.Vector3(
             (Math.random() - 0.5) * 0.2,
@@ -640,8 +562,6 @@ function animate() {
         );
         node.userData.totalForce.add(randomForce);
     });
-    
-    // Update velocities and positions
     allNodes.forEach(node => {
         if (!node.userData.isDragging) {
             const acceleration = node.userData.totalForce.clone().divideScalar(node.userData.mass);
@@ -650,8 +570,6 @@ function animate() {
             node.position.add(node.userData.velocity.clone().multiplyScalar(deltaTime));
         }
     });
-    
-    // Update branch geometries
     branches.forEach(branch => {
         const nodeA = branch.userData.parentNode;
         const nodeB = branch.userData.childNode;
@@ -664,10 +582,9 @@ function animate() {
         positions[5] = nodeB.position.z;
         branch.geometry.attributes.position.needsUpdate = true;
     });
-    
     controls.update();
     renderer.render(scene, camera);
 }
 
-// Initialize when the DOM is ready
+// Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', init);

@@ -1,11 +1,11 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, jsonify, session
 import sqlite3
 import os
 import re
 import glob
 
 app = Flask(__name__)
-app.secret_key = 'apstats_secret_key'  # For flash messages
+app.secret_key = 'apstats_secret_key'  # For flash messages and session
 
 # Database connection helper
 def get_db_connection():
@@ -154,11 +154,24 @@ def group_problem_images(problem_images):
 @app.route('/')
 def index():
     """Home page showing problems with images."""
-    # Check if we should only show uncategorized problems
-    show_uncategorized = request.args.get('show_uncategorized') == 'true'
-    
-    # Check if we should filter by unit
+    # Check if we should only show uncategorized problems - use session for persistence
+    show_uncategorized = request.args.get('show_uncategorized')
     unit_filter = request.args.get('unit_filter')
+    
+    # If parameters are provided in the URL, update the session
+    if show_uncategorized is not None:
+        session['show_uncategorized'] = (show_uncategorized == 'true')
+    elif 'show_uncategorized' not in session:
+        session['show_uncategorized'] = False
+    
+    if unit_filter is not None:
+        session['unit_filter'] = unit_filter
+    elif 'unit_filter' not in session:
+        session['unit_filter'] = None
+    
+    # Use session values for filtering
+    show_uncategorized = session['show_uncategorized']
+    unit_filter = session['unit_filter']
     
     # Get all problem images
     problem_images = get_problem_images()
@@ -325,6 +338,7 @@ def index():
                           years=sorted_years,
                           grouped_problems=filtered_grouped_problems,
                           show_uncategorized=show_uncategorized,
+                          unit_filter=unit_filter,
                           unit_dirs=unit_dirs)
 
 @app.route('/images/<path:filename>')
