@@ -27,7 +27,7 @@ const SPRING_CONSTANT = 0.1; // Stiffness of springs
 const DAMPING = 0.99; // Damping factor for physics
 const KEYBOARD_MOVE_SPEED = 10; // Speed for keyboard movement
 const KEYBOARD_ZOOM_SPEED = 50; // Speed for keyboard zooming
-const PAN_SPEED = 20; // Speed for arrow key panning
+const PAN_SPEED = 50; // Increased from 20 to 50 for more noticeable panning
 const UNIT_HEIGHT_MIN = -400; // Lowest height for Unit 1
 const UNIT_HEIGHT_MAX = 400;  // Highest height for Unit 9
 const Z_DEPTH_ROOT = -300;    // Root furthest back
@@ -41,6 +41,9 @@ function init() {
     setupScene();
     setupInteraction();
     setupKeyboardControls();
+    // Ensure keyboard controls are enabled by default
+    keyboardControls.enabled = true;
+    console.log('Keyboard controls initialized and enabled');
     loadKnowledgeTreeData();
     animate();
 }
@@ -80,6 +83,8 @@ function setupScene() {
     }
     container.appendChild(renderer.domElement);
     
+    console.log('THREE.OrbitControls defined:', typeof THREE.OrbitControls !== 'undefined');
+    
     if (typeof THREE.OrbitControls === 'undefined') {
         console.error('THREE.OrbitControls is not defined! Make sure you include the OrbitControls.js script.');
         controls = { update: function() {} };
@@ -88,6 +93,8 @@ function setupScene() {
         controls.target.set(0, 0, -150);
         controls.enableDamping = true;
         controls.dampingFactor = 0.25;
+        console.log('OrbitControls initialized:', controls);
+        console.log('OrbitControls pan method exists:', typeof controls.pan === 'function');
     }
     
     const ambientLight = new THREE.AmbientLight(0xcccccc, 0.5);
@@ -133,8 +140,45 @@ function setupKeyboardControls() {
     window.addEventListener('keydown', handleKeyDown);
 }
 
+// Custom pan function as a fallback if OrbitControls.pan is not available
+function customPan(direction, amount) {
+    // Create a vector in the camera's local space
+    const vector = new THREE.Vector3();
+    
+    // Set the vector based on the direction
+    switch(direction) {
+        case 'left':
+            vector.setFromMatrixColumn(camera.matrix, 0).negate();
+            break;
+        case 'right':
+            vector.setFromMatrixColumn(camera.matrix, 0);
+            break;
+        case 'up':
+            vector.setFromMatrixColumn(camera.matrix, 1);
+            break;
+        case 'down':
+            vector.setFromMatrixColumn(camera.matrix, 1).negate();
+            break;
+    }
+    
+    // Scale the vector by the amount
+    vector.multiplyScalar(amount);
+    
+    // Move the camera
+    camera.position.add(vector);
+    
+    // Also move the controls target to maintain the same view direction
+    if (controls.target) {
+        controls.target.add(vector);
+    }
+    
+    console.log(`Custom panning ${direction} by ${amount} units. Camera position:`, camera.position);
+}
+
 // Handle keyboard input for navigation
 function handleKeyDown(event) {
+    console.log('Key pressed:', event.key, 'Keyboard controls enabled:', keyboardControls.enabled);
+    
     if (!keyboardControls.enabled) return;
     const key = event.key.toLowerCase();
     let panVector = new THREE.Vector3();
@@ -169,25 +213,49 @@ function handleKeyDown(event) {
         case 'arrowleft':
             // Pan left: negative right vector
             panVector.setFromMatrixColumn(camera.matrix, 0).negate().multiplyScalar(PAN_SPEED);
-            controls.pan(panVector);
+            console.log('Panning left with vector:', panVector);
+            if (typeof controls.pan === 'function') {
+                controls.pan(panVector);
+            } else {
+                console.log('Using custom pan function for left arrow');
+                customPan('left', PAN_SPEED);
+            }
             event.preventDefault();
             break;
         case 'arrowright':
             // Pan right: positive right vector
             panVector.setFromMatrixColumn(camera.matrix, 0).multiplyScalar(PAN_SPEED);
-            controls.pan(panVector);
+            console.log('Panning right with vector:', panVector);
+            if (typeof controls.pan === 'function') {
+                controls.pan(panVector);
+            } else {
+                console.log('Using custom pan function for right arrow');
+                customPan('right', PAN_SPEED);
+            }
             event.preventDefault();
             break;
         case 'arrowup':
             // Pan up: positive up vector
             panVector.setFromMatrixColumn(camera.matrix, 1).multiplyScalar(PAN_SPEED);
-            controls.pan(panVector);
+            console.log('Panning up with vector:', panVector);
+            if (typeof controls.pan === 'function') {
+                controls.pan(panVector);
+            } else {
+                console.log('Using custom pan function for up arrow');
+                customPan('up', PAN_SPEED);
+            }
             event.preventDefault();
             break;
         case 'arrowdown':
             // Pan down: negative up vector
             panVector.setFromMatrixColumn(camera.matrix, 1).negate().multiplyScalar(PAN_SPEED);
-            controls.pan(panVector);
+            console.log('Panning down with vector:', panVector);
+            if (typeof controls.pan === 'function') {
+                controls.pan(panVector);
+            } else {
+                console.log('Using custom pan function for down arrow');
+                customPan('down', PAN_SPEED);
+            }
             event.preventDefault();
             break;
         case 'r':
