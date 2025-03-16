@@ -224,9 +224,7 @@ function buildTree(data) {
             name: `Unit ${unit.unit_number}: ${unit.unit_name}`,
             type: 'unit',
             hasProblems: unit.has_problems,
-            numTopics: unit.topics.length,
-            numProblems: numProblems,
-            tooltip: `<b>Unit ${unit.unit_number}: ${unit.unit_name}</b><br>Topics: ${unit.topics.length}<br>Problems: ${numProblems}`
+            tooltip: `<b>Unit ${unit.unit_number}:</b> ${unit.unit_name}<br>Topics: ${unit.topics.length}<br>Problems: ${numProblems}`
         }, 1);
         unitNode.position.set(unitX, unitY, 0);
         scene.add(unitNode);
@@ -245,8 +243,7 @@ function buildTree(data) {
                 name: `${topic.topic_number} ${topic.topic_name}`,
                 type: 'topic',
                 hasProblems: topic.has_problems,
-                numProblems: topic.problems ? topic.problems.length : 0,
-                tooltip: `<b>${topic.topic_number} ${topic.topic_name}</b><br>Problems: ${topic.problems ? topic.problems.length : 0}`
+                tooltip: `<b>Topic ${topic.topic_number}:</b> ${topic.topic_name}<br><b>Unit:</b> ${unit.unit_number} - ${unit.unit_name}`
             }, 2);
             topicNode.position.set(topicX, topicY, 0);
             scene.add(topicNode);
@@ -266,7 +263,7 @@ function buildTree(data) {
                         name: problem.display_name,
                         type: 'problem',
                         filename: problem.filename,
-                        tooltip: problem.display_name
+                        tooltip: `<b>${problem.display_name}</b><br><b>Topic:</b> ${topic.topic_number} - ${topic.topic_name}`
                     });
                     problemNode.position.set(problemX, problemY, 0);
                     scene.add(problemNode);
