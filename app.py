@@ -160,7 +160,10 @@ def index():
     
     # If parameters are provided in the URL, update the session
     if show_uncategorized is not None:
-        session['show_uncategorized'] = (show_uncategorized == 'true')
+        if show_uncategorized.lower() == 'true':
+            session['show_uncategorized'] = True
+        elif show_uncategorized.lower() == 'false':
+            session['show_uncategorized'] = False
     elif 'show_uncategorized' not in session:
         session['show_uncategorized'] = False
     
