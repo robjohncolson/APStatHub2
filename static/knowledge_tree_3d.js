@@ -12,6 +12,7 @@ let springs = []; // Spring connections between nodes
 let branches = []; // Visual branches (lines)
 let uncategorizedNodes = []; // Nodes without connections
 let clock; // For physics timing
+let dragControls; // Drag controls for nodes
 
 // Constants for tree layout and physics
 const NODE_SIZE = 5;
@@ -26,9 +27,20 @@ const DAMPING = 0.99; // Damping factor for physics
 
 // Initialize the visualization
 function init() {
+    console.log('Initializing 3D Knowledge Tree...');
     createTooltip();
     setupScene();
     setupInteraction();
+    
+    // Add a test cube to verify renderer is working
+    const cube = new THREE.Mesh(
+        new THREE.BoxGeometry(20, 20, 20),
+        new THREE.MeshBasicMaterial({ color: 0xff0000 })
+    );
+    cube.position.set(0, 0, 0);
+    scene.add(cube);
+    console.log('Added test cube to scene');
+    
     loadKnowledgeTreeData();
     animate();
 }
@@ -48,10 +60,14 @@ function createTooltip() {
     tooltipDiv.style.fontFamily = 'Arial, sans-serif';
     tooltipDiv.style.fontSize = '14px';
     document.body.appendChild(tooltipDiv);
+    console.log('Tooltip created');
 }
 
 // Set up the Three.js scene, camera, renderer, and controls
 function setupScene() {
+    console.log('Setting up scene...');
+    console.log('Window size:', window.innerWidth, window.innerHeight);
+    
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf0f0f0);
     
@@ -60,11 +76,27 @@ function setupScene() {
     
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    document.getElementById('tree-container').appendChild(renderer.domElement);
     
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.25;
+    const container = document.getElementById('tree-container');
+    if (!container) {
+        console.error('Container element #tree-container not found!');
+        return;
+    }
+    container.appendChild(renderer.domElement);
+    console.log('Renderer added to container');
+    
+    // Check if OrbitControls is available
+    if (typeof THREE.OrbitControls === 'undefined') {
+        console.error('THREE.OrbitControls is not defined! Make sure you include the OrbitControls.js script.');
+        // Create a basic control if OrbitControls is not available
+        controls = {
+            update: function() {}
+        };
+    } else {
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.25;
+    }
     
     const ambientLight = new THREE.AmbientLight(0xcccccc, 0.5);
     scene.add(ambientLight);
@@ -73,7 +105,13 @@ function setupScene() {
     directionalLight.position.set(1, 1, 1).normalize();
     scene.add(directionalLight);
     
+    // Add a bright light to ensure visibility
+    const pointLight = new THREE.PointLight(0xffffff, 1, 1000);
+    pointLight.position.set(0, 0, 200);
+    scene.add(pointLight);
+    
     window.addEventListener('resize', onWindowResize, false);
+    console.log('Scene setup complete');
 }
 
 // Set up interaction (raycasting for node selection)
@@ -83,6 +121,7 @@ function setupInteraction() {
     
     renderer.domElement.addEventListener('mousemove', onMouseMove, false);
     renderer.domElement.addEventListener('click', onMouseClick, false);
+    console.log('Interaction setup complete');
 }
 
 // Handle window resize
@@ -183,18 +222,41 @@ function highlightImmediatePath(node) {
 
 // Load knowledge tree data from the server
 function loadKnowledgeTreeData() {
+    console.log('Loading knowledge tree data...');
     fetch('/api/knowledge_tree_data')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`API request failed with status ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log('Data loaded successfully:', data);
             buildTree(data);
         })
         .catch(error => {
             console.error('Error loading knowledge tree data:', error);
+            // Add a message to the container
+            const container = document.getElementById('tree-container');
+            if (container) {
+                const errorMsg = document.createElement('div');
+                errorMsg.style.position = 'absolute';
+                errorMsg.style.top = '50%';
+                errorMsg.style.left = '50%';
+                errorMsg.style.transform = 'translate(-50%, -50%)';
+                errorMsg.style.background = 'rgba(255,0,0,0.7)';
+                errorMsg.style.color = 'white';
+                errorMsg.style.padding = '20px';
+                errorMsg.style.borderRadius = '5px';
+                errorMsg.innerHTML = `<h3>Error Loading Data</h3><p>${error.message}</p>`;
+                container.appendChild(errorMsg);
+            }
         });
 }
 
 // Build the 3D tree from the data
 function buildTree(data) {
+    console.log('Building tree from data...');
     treeRoot = createNode({
         id: 'root',
         name: 'AP Statistics',
@@ -207,6 +269,12 @@ function buildTree(data) {
     allNodes.push(treeRoot);
     
     const units = data.units;
+    if (!units || units.length === 0) {
+        console.error('No units found in data');
+        return;
+    }
+    
+    console.log(`Building tree with ${units.length} units`);
     const unitSpread = units.length * SIBLING_SPREAD / 2;
     
     units.forEach((unit, unitIndex) => {
@@ -302,21 +370,27 @@ function buildTree(data) {
         });
     }
     
-    // Initialize DragControls for all nodes
-    const dragControls = new THREE.DragControls(allNodes, camera, renderer.domElement);
-    dragControls.addEventListener('dragstart', function(event) {
-        event.object.userData.isDragging = true;
-    });
-    dragControls.addEventListener('dragend', function(event) {
-        event.object.userData.isDragging = false;
-        event.object.userData.velocity.set(0, 0, 0); // Reset velocity on release
-    });
+    // Initialize DragControls for all nodes if available
+    if (typeof THREE.DragControls !== 'undefined') {
+        dragControls = new THREE.DragControls(allNodes, camera, renderer.domElement);
+        dragControls.addEventListener('dragstart', function(event) {
+            event.object.userData.isDragging = true;
+        });
+        dragControls.addEventListener('dragend', function(event) {
+            event.object.userData.isDragging = false;
+            event.object.userData.velocity.set(0, 0, 0); // Reset velocity on release
+        });
+    } else {
+        console.warn('THREE.DragControls is not defined. Node dragging will not be available.');
+    }
     
     // Initialize clock for physics timing
     clock = new THREE.Clock();
     
     controls.target.set(0, -LEVEL_HEIGHT, 0);
     controls.update();
+    
+    console.log('Tree building complete. Scene has', scene.children.length, 'objects');
 }
 
 // Create a node sphere with the given data
@@ -342,14 +416,31 @@ function createNode(data, level) {
 function createProblemNode(data) {
     const geometry = new THREE.PlaneGeometry(NODE_SIZE * 3, NODE_SIZE * 3);
     const textureLoader = new THREE.TextureLoader();
-    const texture = textureLoader.load(`/images/${data.filename}`);
     
-    const material = new THREE.MeshBasicMaterial({
-        map: texture,
+    // Use a fallback texture in case the image fails to load
+    const fallbackMaterial = new THREE.MeshBasicMaterial({
+        color: 0x3366cc,
         side: THREE.DoubleSide
     });
     
-    const node = new THREE.Mesh(geometry, material);
+    const node = new THREE.Mesh(geometry, fallbackMaterial);
+    
+    // Try to load the texture
+    textureLoader.load(
+        `/images/${data.filename}`,
+        function(texture) {
+            // Texture loaded successfully
+            node.material = new THREE.MeshBasicMaterial({
+                map: texture,
+                side: THREE.DoubleSide
+            });
+        },
+        undefined,
+        function(error) {
+            console.warn(`Failed to load texture for ${data.filename}:`, error);
+            // Keep using the fallback material
+        }
+    );
     
     node.userData = data;
     node.userData.isActive = true;
@@ -379,6 +470,10 @@ function createBranch(parentNode, childNode, isActive) {
     line.userData.isActive = isActive;
     scene.add(line);
     
+    // Set up parent-child relationship for highlighting
+    childNode.userData.parent = parentNode;
+    childNode.userData.incomingBranch = line;
+    
     return line;
 }
 
@@ -386,7 +481,13 @@ function createBranch(parentNode, childNode, isActive) {
 function animate() {
     requestAnimationFrame(animate);
     
-    const deltaTime = clock.getDelta();
+    // Log once to confirm animation is running
+    if (!window.animationStarted) {
+        console.log('Animation loop started');
+        window.animationStarted = true;
+    }
+    
+    const deltaTime = clock ? clock.getDelta() : 0.016;
     
     // Physics step
     allNodes.forEach(node => {
