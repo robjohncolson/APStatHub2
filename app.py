@@ -15,7 +15,7 @@ def get_db_connection():
 
 # Function to get all problem images from Unit1 folder
 def get_problem_images():
-    unit1_path = os.path.join('AP_Statistics_Course', 'Unit 1- Exploring One-Variable Data')
+    base_path = 'AP_Statistics_Course'
     image_files = []
     
     # Connect to database to get stored metadata
@@ -38,63 +38,26 @@ def get_problem_images():
     
     conn.close()
     
-    # Get all PNG files in the Unit1 folder
-    for file in glob.glob(os.path.join(unit1_path, '*.png')):
-        filename = os.path.basename(file)
+    # Get all unit directories
+    unit_dirs = [d for d in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, d)) and d.startswith('Unit')]
+    
+    # Scan each unit directory for PNG files
+    for unit_dir in unit_dirs:
+        unit_path = os.path.join(base_path, unit_dir)
         
-        # Check if we have stored metadata for this problem
-        stored_metadata = problem_metadata.get(filename, {})
+        # Extract unit number for reference
+        unit_match = re.search(r'Unit (\d+)', unit_dir)
+        unit_number = unit_match.group(1) if unit_match else "Unknown"
         
-        # Extract problem info from filename
-        year_match = re.search(r'(\d{4})', filename)
-        year = stored_metadata.get('year') or (year_match.group(1) if year_match else "Unknown")
-        
-        # Determine if it's MCQ or FRQ - use stored value if available
-        stored_type = stored_metadata.get('problem_type')
-        if stored_type:
-            problem_type = stored_type
-        elif 'MCQ' in filename:
-            problem_type = 'Multiple Choice'
-        elif 'FRQ' in filename or 'Frq' in filename:
-            problem_type = 'Free Response'
-        else:
-            problem_type = 'Unknown'
-        
-        # Extract problem number - use stored value if available
-        stored_num = stored_metadata.get('problem_num')
-        if stored_num:
-            problem_num = stored_num
-        else:
-            num_match = re.search(r'(?:MCQ|FRQ|Frq)(\d+)', filename)
-            problem_num = num_match.group(1) if num_match else ""
-        
-        # Extract part number for FRQs (e.g., FRQ1-2 would be part 2 of question 1)
-        part_match = re.search(r'(?:FRQ|Frq)(\d+)-(\d+)', filename)
-        part_num = part_match.group(2) if part_match else "1"
-        
-        # Create a group identifier for related FRQ parts
-        group_id = None
-        if problem_type == 'Free Response' and problem_num:
-            # Group identifier: year_FRQ_number (e.g., 2019_FRQ_1)
-            group_id = f"{year}_FRQ_{problem_num}"
-        
-        # Use stored description if available
-        description = stored_metadata.get('description', f"Problem from {year} AP Statistics Exam")
-        
-        # Create display name using stored values if available
-        display_name = f"{year} {problem_type} #{problem_num}" + (f" (Part {part_num})" if part_match else "")
-        
-        image_files.append({
-            'filename': filename,
-            'path': file,
-            'year': year,
-            'type': problem_type,
-            'number': problem_num,
-            'part': part_num,
-            'group_id': group_id,
-            'description': description,
-            'display_name': display_name
-        })
+        # Get all PNG files directly in the unit folder
+        for file in glob.glob(os.path.join(unit_path, '*.png')):
+            process_image_file(file, unit_number, problem_metadata, image_files)
+            
+        # Also check subdirectories within each unit
+        for subdir, _, _ in os.walk(unit_path):
+            if subdir != unit_path:  # Skip the main unit directory (already processed)
+                for file in glob.glob(os.path.join(subdir, '*.png')):
+                    process_image_file(file, unit_number, problem_metadata, image_files)
     
     # Sort by year, then by problem number, then by part number
     image_files.sort(key=lambda x: (
@@ -105,6 +68,65 @@ def get_problem_images():
     ))
     
     return image_files
+
+# Helper function to process an image file
+def process_image_file(file, unit_number, problem_metadata, image_files):
+    filename = os.path.basename(file)
+    
+    # Check if we have stored metadata for this problem
+    stored_metadata = problem_metadata.get(filename, {})
+    
+    # Extract problem info from filename
+    year_match = re.search(r'(\d{4})', filename)
+    year = stored_metadata.get('year') or (year_match.group(1) if year_match else "Unknown")
+    
+    # Determine if it's MCQ or FRQ - use stored value if available
+    stored_type = stored_metadata.get('problem_type')
+    if stored_type:
+        problem_type = stored_type
+    elif 'MCQ' in filename:
+        problem_type = 'Multiple Choice'
+    elif 'FRQ' in filename or 'Frq' in filename:
+        problem_type = 'Free Response'
+    else:
+        problem_type = 'Unknown'
+    
+    # Extract problem number - use stored value if available
+    stored_num = stored_metadata.get('problem_num')
+    if stored_num:
+        problem_num = stored_num
+    else:
+        num_match = re.search(r'(?:MCQ|FRQ|Frq)(\d+)', filename)
+        problem_num = num_match.group(1) if num_match else ""
+    
+    # Extract part number for FRQs (e.g., FRQ1-2 would be part 2 of question 1)
+    part_match = re.search(r'(?:FRQ|Frq)(\d+)-(\d+)', filename)
+    part_num = part_match.group(2) if part_match else "1"
+    
+    # Create a group identifier for related FRQ parts
+    group_id = None
+    if problem_type == 'Free Response' and problem_num:
+        # Group identifier: year_FRQ_number (e.g., 2019_FRQ_1)
+        group_id = f"{year}_FRQ_{problem_num}"
+    
+    # Use stored description if available
+    description = stored_metadata.get('description', f"Problem from {year} AP Statistics Exam")
+    
+    # Create display name using stored values if available
+    display_name = f"{year} {problem_type} #{problem_num}" + (f" (Part {part_num})" if part_match else "")
+    
+    image_files.append({
+        'filename': filename,
+        'path': file,
+        'year': year,
+        'type': problem_type,
+        'number': problem_num,
+        'part': part_num,
+        'group_id': group_id,
+        'description': description,
+        'display_name': display_name,
+        'unit': unit_number  # Add unit number for reference
+    })
 
 # Function to group related FRQ images
 def group_problem_images(problem_images):
@@ -273,18 +295,59 @@ def index():
 
 @app.route('/images/<path:filename>')
 def serve_image(filename):
-    """Serve images from the Unit1 folder."""
+    """Serve images from any unit folder."""
+    # Find the file in any unit directory
+    for unit_dir in os.listdir('AP_Statistics_Course'):
+        if not os.path.isdir(os.path.join('AP_Statistics_Course', unit_dir)) or not unit_dir.startswith('Unit'):
+            continue
+            
+        unit_path = os.path.join('AP_Statistics_Course', unit_dir)
+        
+        # Check if file exists directly in the unit folder
+        full_path = os.path.join(unit_path, filename)
+        if os.path.exists(full_path):
+            return send_from_directory(unit_path, filename)
+            
+        # Check subdirectories
+        for subdir, _, _ in os.walk(unit_path):
+            if subdir != unit_path:  # Skip the main unit directory (already checked)
+                if os.path.exists(os.path.join(subdir, filename)):
+                    return send_from_directory(subdir, filename)
+    
+    # If not found, default to Unit 1 for backward compatibility
     unit1_path = os.path.join('AP_Statistics_Course', 'Unit 1- Exploring One-Variable Data')
     return send_from_directory(unit1_path, filename)
 
 @app.route('/problem/<path:filename>')
 def problem_detail(filename):
     """Show details for a specific problem, including related topics."""
-    # Get the problem image
-    unit1_path = os.path.join('AP_Statistics_Course', 'Unit 1- Exploring One-Variable Data')
-    full_path = os.path.join(unit1_path, filename)
+    # Find the problem image in any unit directory
+    file_path = None
     
-    if not os.path.exists(full_path):
+    for unit_dir in os.listdir('AP_Statistics_Course'):
+        if not os.path.isdir(os.path.join('AP_Statistics_Course', unit_dir)) or not unit_dir.startswith('Unit'):
+            continue
+            
+        unit_path = os.path.join('AP_Statistics_Course', unit_dir)
+        
+        # Check if file exists directly in the unit folder
+        full_path = os.path.join(unit_path, filename)
+        if os.path.exists(full_path):
+            file_path = full_path
+            break
+            
+        # Check subdirectories
+        for subdir, _, _ in os.walk(unit_path):
+            if subdir != unit_path:  # Skip the main unit directory (already checked)
+                full_path = os.path.join(subdir, filename)
+                if os.path.exists(full_path):
+                    file_path = full_path
+                    break
+        
+        if file_path:
+            break
+    
+    if not file_path:
         flash('Problem image not found!')
         return redirect(url_for('index'))
     
