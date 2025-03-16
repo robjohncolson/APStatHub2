@@ -6,6 +6,7 @@ let scene, camera, renderer, controls;
 let treeRoot, nodeMap = {};
 let raycaster, mouse;
 let tooltipDiv;
+let highlightedObjects = []; // Track highlighted nodes and branches
 
 // Constants for tree layout
 const NODE_SIZE = 5;
@@ -18,20 +19,20 @@ const HIGHLIGHT_COLOR = 0xff9900;
 
 // Initialize the visualization
 function init() {
-    // Create tooltip div for hovering over nodes
     createTooltip();
-    
-    // Set up Three.js scene
     setupScene();
-    
-    // Set up interaction
     setupInteraction();
-    
-    // Load data and build tree
     loadKnowledgeTreeData();
-    
-    // Start animation loop
     animate();
+
+    // Add reset view keyboard shortcut
+    window.addEventListener('keydown', (event) => {
+        if (event.key === 'r' || event.key === 'R') {
+            camera.position.set(0, 100, 500);
+            controls.target.set(0, -LEVEL_HEIGHT, 0);
+            controls.update();
+        }
+    });
 }
 
 // Create tooltip div for displaying node information on hover
@@ -46,32 +47,28 @@ function createTooltip() {
     tooltipDiv.style.pointerEvents = 'none';
     tooltipDiv.style.zIndex = '999';
     tooltipDiv.style.visibility = 'hidden';
+    tooltipDiv.style.fontFamily = 'Arial, sans-serif';
+    tooltipDiv.style.fontSize = '14px';
+    tooltipDiv.style.lineHeight = '1.5';
     document.body.appendChild(tooltipDiv);
 }
 
 // Set up the Three.js scene, camera, renderer, and controls
 function setupScene() {
-    // Create scene
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf0f0f0);
     
-    // Create camera
-    camera = new THREE.PerspectiveCamera(
-        60, window.innerWidth / window.innerHeight, 1, 5000
-    );
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 5000);
     camera.position.set(0, 100, 500);
     
-    // Create renderer
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.getElementById('tree-container').appendChild(renderer.domElement);
     
-    // Add orbit controls for navigation
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.25;
     
-    // Add lights
     const ambientLight = new THREE.AmbientLight(0xcccccc, 0.5);
     scene.add(ambientLight);
     
@@ -79,7 +76,6 @@ function setupScene() {
     directionalLight.position.set(1, 1, 1).normalize();
     scene.add(directionalLight);
     
-    // Handle window resize
     window.addEventListener('resize', onWindowResize, false);
 }
 
@@ -88,7 +84,6 @@ function setupInteraction() {
     raycaster = new THREE.Raycaster();
     mouse = new THREE.Vector2();
     
-    // Add event listeners
     renderer.domElement.addEventListener('mousemove', onMouseMove, false);
     renderer.domElement.addEventListener('click', onMouseClick, false);
 }
@@ -102,43 +97,32 @@ function onWindowResize() {
 
 // Handle mouse movement for hovering effects
 function onMouseMove(event) {
-    // Calculate mouse position in normalized device coordinates
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
     
-    // Update tooltip position
     tooltipDiv.style.left = event.clientX + 10 + 'px';
     tooltipDiv.style.top = event.clientY + 10 + 'px';
     
-    // Check for intersections
     checkIntersections();
 }
 
 // Handle mouse clicks for node selection
 function onMouseClick(event) {
-    // Calculate mouse position in normalized device coordinates
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
     
-    // Update the picking ray with the camera and mouse position
     raycaster.setFromCamera(mouse, camera);
     
-    // Calculate objects intersecting the picking ray
     const intersects = raycaster.intersectObjects(scene.children, true);
     
     if (intersects.length > 0) {
         const object = intersects[0].object;
         
-        // If the object has userData with a nodeId, it's a tree node
         if (object.userData && object.userData.id) {
             const nodeId = object.userData.id;
-            
-            // If it's a topic node with problems, navigate to the topic detail page
             if (object.userData.type === 'topic' && object.userData.hasProblems) {
                 window.location.href = `/topic/${nodeId}`;
-            }
-            // If it's a problem node, navigate to the problem detail page
-            else if (object.userData.type === 'problem') {
+            } else if (object.userData.type === 'problem') {
                 window.location.href = `/problem/${object.userData.filename}`;
             }
         }
@@ -147,41 +131,59 @@ function onMouseClick(event) {
 
 // Check for intersections with nodes for hover effects
 function checkIntersections() {
-    // Update the picking ray with the camera and mouse position
     raycaster.setFromCamera(mouse, camera);
     
-    // Calculate objects intersecting the picking ray
     const intersects = raycaster.intersectObjects(scene.children, true);
-    
-    // Reset all previously highlighted nodes
-    for (const id in nodeMap) {
-        if (nodeMap[id].isHighlighted) {
-            const node = nodeMap[id];
-            if (node.isActive) {
-                node.material.color.setHex(ACTIVE_BRANCH_COLOR);
-            } else {
-                node.material.color.setHex(INACTIVE_BRANCH_COLOR);
-            }
-            node.isHighlighted = false;
-        }
-    }
-    
-    // Hide tooltip by default
-    tooltipDiv.style.visibility = 'hidden';
     
     if (intersects.length > 0) {
         const object = intersects[0].object;
         
-        // If the object has userData with a nodeId, it's a tree node
         if (object.userData && object.userData.id) {
-            // Highlight the node
-            object.material.color.setHex(HIGHLIGHT_COLOR);
-            object.isHighlighted = true;
-            
-            // Show tooltip with node information
+            highlightImmediatePath(object);
             tooltipDiv.innerHTML = object.userData.tooltip;
             tooltipDiv.style.visibility = 'visible';
         }
+    } else {
+        highlightedObjects.forEach(obj => {
+            if (obj.userData.type) { // Node
+                obj.material.color.setHex(obj.userData.isActive ? ACTIVE_BRANCH_COLOR : INACTIVE_BRANCH_COLOR);
+            } else { // Branch
+                obj.material.color.setHex(obj.userData.isActive ? ACTIVE_BRANCH_COLOR : INACTIVE_BRANCH_COLOR);
+            }
+        });
+        highlightedObjects = [];
+        tooltipDiv.style.visibility = 'hidden';
+    }
+}
+
+// Highlight the node, its parent, and the connecting branch
+function highlightImmediatePath(node) {
+    // Reset previous highlights
+    highlightedObjects.forEach(obj => {
+        if (obj.userData.type) { // Node
+            obj.material.color.setHex(obj.userData.isActive ? ACTIVE_BRANCH_COLOR : INACTIVE_BRANCH_COLOR);
+        } else { // Branch
+            obj.material.color.setHex(obj.userData.isActive ? ACTIVE_BRANCH_COLOR : INACTIVE_BRANCH_COLOR);
+        }
+    });
+    highlightedObjects = [];
+    
+    // Highlight the node itself
+    node.material.color.setHex(HIGHLIGHT_COLOR);
+    highlightedObjects.push(node);
+    
+    // Highlight parent and incoming branch, if they exist
+    if (node.userData.parent) {
+        const parent = node.userData.parent;
+        const branch = node.userData.incomingBranch;
+        
+        if (branch) {
+            branch.material.color.setHex(HIGHLIGHT_COLOR);
+            highlightedObjects.push(branch);
+        }
+        
+        parent.material.color.setHex(HIGHLIGHT_COLOR);
+        highlightedObjects.push(parent);
     }
 }
 
@@ -199,74 +201,66 @@ function loadKnowledgeTreeData() {
 
 // Build the 3D tree from the data
 function buildTree(data) {
-    // Create root node (AP Statistics)
     treeRoot = createNode({
         id: 'root',
         name: 'AP Statistics',
         type: 'root',
         hasProblems: false,
-        tooltip: 'AP Statistics Curriculum'
+        tooltip: '<b>AP Statistics Curriculum</b>'
     }, 0);
     treeRoot.position.set(0, 0, 0);
     scene.add(treeRoot);
     
-    // Create unit nodes
     const units = data.units;
     const unitSpread = units.length * SIBLING_SPREAD / 2;
     
     units.forEach((unit, unitIndex) => {
-        // Calculate position for this unit
         const unitX = (unitIndex * SIBLING_SPREAD) - unitSpread;
         const unitY = -LEVEL_HEIGHT;
         
-        // Create unit node
+        const numProblems = unit.topics.reduce((sum, topic) => sum + (topic.problems ? topic.problems.length : 0), 0);
         const unitNode = createNode({
             id: unit.unit_id,
             name: `Unit ${unit.unit_number}: ${unit.unit_name}`,
             type: 'unit',
             hasProblems: unit.has_problems,
-            tooltip: `Unit ${unit.unit_number}: ${unit.unit_name}`
+            numTopics: unit.topics.length,
+            numProblems: numProblems,
+            tooltip: `<b>Unit ${unit.unit_number}: ${unit.unit_name}</b><br>Topics: ${unit.topics.length}<br>Problems: ${numProblems}`
         }, 1);
         unitNode.position.set(unitX, unitY, 0);
         scene.add(unitNode);
         
-        // Connect to root
-        createBranch(treeRoot.position, unitNode.position, unit.has_problems);
+        createBranch(treeRoot, unitNode, unit.has_problems);
         
-        // Create topic nodes for this unit
         const topics = unit.topics;
         const topicSpread = topics.length * SIBLING_SPREAD / 2;
         
         topics.forEach((topic, topicIndex) => {
-            // Calculate position for this topic
             const topicX = unitX + ((topicIndex * SIBLING_SPREAD) - topicSpread);
             const topicY = -LEVEL_HEIGHT * 2;
             
-            // Create topic node
             const topicNode = createNode({
                 id: topic.topic_id,
                 name: `${topic.topic_number} ${topic.topic_name}`,
                 type: 'topic',
                 hasProblems: topic.has_problems,
-                tooltip: `${topic.topic_number} ${topic.topic_name}`
+                numProblems: topic.problems ? topic.problems.length : 0,
+                tooltip: `<b>${topic.topic_number} ${topic.topic_name}</b><br>Problems: ${topic.problems ? topic.problems.length : 0}`
             }, 2);
             topicNode.position.set(topicX, topicY, 0);
             scene.add(topicNode);
             
-            // Connect to unit
-            createBranch(unitNode.position, topicNode.position, topic.has_problems);
+            createBranch(unitNode, topicNode, topic.has_problems);
             
-            // If the topic has problems, create problem nodes
             if (topic.has_problems && topic.problems) {
                 const problems = topic.problems;
                 const problemSpread = problems.length * SIBLING_SPREAD / 2;
                 
                 problems.forEach((problem, problemIndex) => {
-                    // Calculate position for this problem
                     const problemX = topicX + ((problemIndex * SIBLING_SPREAD) - problemSpread);
                     const problemY = -LEVEL_HEIGHT * 3;
                     
-                    // Create problem node (with image texture)
                     const problemNode = createProblemNode({
                         id: problem.problem_id,
                         name: problem.display_name,
@@ -277,14 +271,12 @@ function buildTree(data) {
                     problemNode.position.set(problemX, problemY, 0);
                     scene.add(problemNode);
                     
-                    // Connect to topic
-                    createBranch(topicNode.position, problemNode.position, true);
+                    createBranch(topicNode, problemNode, true);
                 });
             }
         });
     });
     
-    // Center camera on tree
     controls.target.set(0, -LEVEL_HEIGHT, 0);
     controls.update();
 }
@@ -298,12 +290,8 @@ function createNode(data, level) {
     
     const node = new THREE.Mesh(geometry, material);
     
-    // Store node data
     node.userData = data;
-    node.isActive = data.hasProblems;
-    node.isHighlighted = false;
-    
-    // Add to node map for easy access
+    node.userData.isActive = data.hasProblems;
     nodeMap[data.id] = node;
     
     return node;
@@ -311,14 +299,10 @@ function createNode(data, level) {
 
 // Create a problem node with an image texture
 function createProblemNode(data) {
-    // Create a plane geometry for the problem image
     const geometry = new THREE.PlaneGeometry(NODE_SIZE * 3, NODE_SIZE * 3);
-    
-    // Load the problem image as a texture
     const textureLoader = new THREE.TextureLoader();
     const texture = textureLoader.load(`/images/${data.filename}`);
     
-    // Create material with the image texture
     const material = new THREE.MeshBasicMaterial({
         map: texture,
         side: THREE.DoubleSide
@@ -326,31 +310,35 @@ function createProblemNode(data) {
     
     const node = new THREE.Mesh(geometry, material);
     
-    // Store node data
     node.userData = data;
-    node.isActive = true;
-    node.isHighlighted = false;
-    
-    // Add to node map for easy access
+    node.userData.isActive = true;
     nodeMap[data.id] = node;
     
     return node;
 }
 
-// Create a branch (line) between two points
-function createBranch(startPoint, endPoint, isActive) {
+// Create a branch (line) between two nodes
+function createBranch(parentNode, childNode, isActive) {
     const material = new THREE.LineBasicMaterial({
         color: isActive ? ACTIVE_BRANCH_COLOR : INACTIVE_BRANCH_COLOR,
         linewidth: isActive ? 2 : 1
     });
     
     const geometry = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(startPoint.x, startPoint.y, startPoint.z),
-        new THREE.Vector3(endPoint.x, endPoint.y, endPoint.z)
+        parentNode.position,
+        childNode.position
     ]);
     
     const line = new THREE.Line(geometry, material);
+    line.userData.parentNode = parentNode;
+    line.userData.childNode = childNode;
+    line.userData.isActive = isActive;
     scene.add(line);
+    
+    parentNode.userData.outgoingBranches = parentNode.userData.outgoingBranches || [];
+    parentNode.userData.outgoingBranches.push(line);
+    childNode.userData.incomingBranch = line;
+    childNode.userData.parent = parentNode;
     
     return line;
 }
@@ -363,4 +351,4 @@ function animate() {
 }
 
 // Initialize when the DOM is ready
-document.addEventListener('DOMContentLoaded', init); 
+document.addEventListener('DOMContentLoaded', init);
