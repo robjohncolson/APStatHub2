@@ -16,6 +16,7 @@ const BRANCH_COLOR = 0x555555;
 const ACTIVE_BRANCH_COLOR = 0x00aa00;
 const INACTIVE_BRANCH_COLOR = 0xaaaaaa;
 const HIGHLIGHT_COLOR = 0xff9900;
+const PAN_SPEED = 20; // Controls how far the view moves per key press
 
 // Initialize the visualization
 function init() {
@@ -25,9 +26,38 @@ function init() {
     loadKnowledgeTreeData();
     animate();
 
-    // Add reset view keyboard shortcut
+    // Add keyboard controls for panning and reset view
     window.addEventListener('keydown', (event) => {
-        if (event.key === 'r' || event.key === 'R') {
+        if (event.key === 'ArrowLeft') {
+            // Pan left: Move along the negative X-axis in camera space
+            const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
+            const panVector = right.negate().multiplyScalar(PAN_SPEED);
+            camera.position.add(panVector);
+            controls.target.add(panVector);
+            controls.update();
+        } else if (event.key === 'ArrowRight') {
+            // Pan right: Move along the positive X-axis in camera space
+            const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
+            const panVector = right.multiplyScalar(PAN_SPEED);
+            camera.position.add(panVector);
+            controls.target.add(panVector);
+            controls.update();
+        } else if (event.key === 'ArrowUp') {
+            // Pan up: Move along the positive Y-axis in camera space
+            const up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
+            const panVector = up.multiplyScalar(PAN_SPEED);
+            camera.position.add(panVector);
+            controls.target.add(panVector);
+            controls.update();
+        } else if (event.key === 'ArrowDown') {
+            // Pan down: Move along the negative Y-axis in camera space
+            const up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
+            const panVector = up.negate().multiplyScalar(PAN_SPEED);
+            camera.position.add(panVector);
+            controls.target.add(panVector);
+            controls.update();
+        } else if (event.key === 'r' || event.key === 'R') {
+            // Reset view (existing functionality)
             camera.position.set(0, 100, 500);
             controls.target.set(0, -LEVEL_HEIGHT, 0);
             controls.update();

@@ -157,8 +157,15 @@ def index():
     # Check if we should only show uncategorized problems
     show_uncategorized = request.args.get('show_uncategorized') == 'true'
     
+    # Check if we should filter by unit
+    unit_filter = request.args.get('unit_filter')
+    
     # Get all problem images
     problem_images = get_problem_images()
+    
+    # Filter by unit if specified
+    if unit_filter:
+        problem_images = [p for p in problem_images if p.get('unit') == unit_filter]
     
     # Group related FRQ images
     grouped_problems, standalone_problems = group_problem_images(problem_images)
@@ -186,6 +193,11 @@ def index():
             'problem_type': problem['problem_type'] if 'problem_type' in problem.keys() else None,
             'problem_num': problem['problem_num'] if 'problem_num' in problem.keys() else None
         }
+    
+    # Get all unit directories for the filter dropdown
+    unit_dirs = [d for d in os.listdir('AP_Statistics_Course') 
+                if os.path.isdir(os.path.join('AP_Statistics_Course', d)) and d.startswith('Unit')]
+    unit_dirs.sort(key=lambda x: int(re.search(r'Unit (\d+)', x).group(1)) if re.search(r'Unit (\d+)', x) else 999)
     
     conn.close()
     
@@ -312,7 +324,8 @@ def index():
                           problems_by_year=problems_by_year, 
                           years=sorted_years,
                           grouped_problems=filtered_grouped_problems,
-                          show_uncategorized=show_uncategorized)
+                          show_uncategorized=show_uncategorized,
+                          unit_dirs=unit_dirs)
 
 @app.route('/images/<path:filename>')
 def serve_image(filename):
