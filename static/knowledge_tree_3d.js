@@ -237,20 +237,22 @@ function checkIntersections() {
     }
 }
 
-// Highlight the node, its parent, and the connecting branch
+// Highlight the node, its parents, and the connecting branches
 function highlightImmediatePath(node) {
     resetHighlights();
     node.material.color.setHex(HIGHLIGHT_COLOR);
     highlightedObjects.push(node);
-    if (node.userData.parent) {
-        const parent = node.userData.parent;
-        const branch = node.userData.incomingBranch;
-        if (branch) {
+    if (node.userData.incomingBranches) {
+        node.userData.incomingBranches.forEach(branch => {
             branch.material.color.setHex(HIGHLIGHT_COLOR);
             highlightedObjects.push(branch);
-        }
-        parent.material.color.setHex(HIGHLIGHT_COLOR);
-        highlightedObjects.push(parent);
+        });
+    }
+    if (node.userData.parents) {
+        node.userData.parents.forEach(parent => {
+            parent.material.color.setHex(HIGHLIGHT_COLOR);
+            highlightedObjects.push(parent);
+        });
     }
 }
 
@@ -300,6 +302,8 @@ function buildTree(data) {
     scene.add(treeRoot);
     allNodes.push(treeRoot);
 
+    let problemToTopics = {}; // problemId -> { data, topics: [] }
+
     const units = data.units || [];
     const numUnits = units.length;
     const unitHeightStep = numUnits > 1 ? (UNIT_HEIGHT_MAX - UNIT_HEIGHT_MIN) / (numUnits - 1) : 0;
@@ -346,26 +350,38 @@ function buildTree(data) {
             springs.push({ nodeA: unitNode, nodeB: topicNode, restLength: unitNode.position.distanceTo(topicNode.position) });
 
             const problems = topic.problems || [];
-            const problemSpread = problems.length * SIBLING_SPREAD / 2;
-            const problemY = topicY - LEVEL_HEIGHT / 2;
-
-            problems.forEach((problem, problemIndex) => {
-                const problemX = topicX + ((problemIndex * SIBLING_SPREAD) - problemSpread);
-                const problemNode = createProblemNode({
-                    id: problem.problem_id,
-                    name: problem.display_name,
-                    type: 'problem',
-                    filename: problem.filename,
-                    tooltip: `<b>${problem.display_name}</b><br><b>Topic:</b> ${topic.topic_name}`
-                });
-                problemNode.position.set(problemX, problemY, Z_DEPTH_PROBLEMS);
-                scene.add(problemNode);
-                allNodes.push(problemNode);
-
-                const branch = createBranch(topicNode, problemNode, true);
-                branches.push(branch);
-                springs.push({ nodeA: topicNode, nodeB: problemNode, restLength: topicNode.position.distanceTo(problemNode.position) });
+            problems.forEach(problem => {
+                if (!problemToTopics[problem.problem_id]) {
+                    problemToTopics[problem.problem_id] = { data: problem, topics: [] };
+                }
+                problemToTopics[problem.problem_id].topics.push(topicNode);
             });
+        });
+    });
+
+    // Create problem nodes and connect to all associated topics
+    Object.keys(problemToTopics).forEach(problemId => {
+        const { data, topics } = problemToTopics[problemId];
+        const problemNode = createProblemNode(data);
+        
+        // Set initial position as average of connected topics' positions
+        let sumX = 0, sumY = 0;
+        topics.forEach(topic => {
+            sumX += topic.position.x;
+            sumY += topic.position.y;
+        });
+        const avgX = sumX / topics.length;
+        const avgY = sumY / topics.length;
+        problemNode.position.set(avgX, avgY, Z_DEPTH_PROBLEMS);
+        scene.add(problemNode);
+        allNodes.push(problemNode);
+
+        // Connect to each topic with branches and springs
+        topics.forEach(topicNode => {
+            const branch = createBranch(topicNode, problemNode, true);
+            branches.push(branch);
+            const restLength = topicNode.position.distanceTo(problemNode.position);
+            springs.push({ nodeA: topicNode, nodeB: problemNode, restLength });
         });
     });
 
@@ -413,7 +429,9 @@ function createNode(data, level) {
         isActive: data.hasProblems,
         velocity: new THREE.Vector3(0, 0, 0),
         mass: 1,
-        isDragging: false
+        isDragging: false,
+        parents: [],
+        incomingBranches: []
     };
     nodeMap[data.id] = node;
     return node;
@@ -435,7 +453,9 @@ function createProblemNode(data) {
         isActive: true,
         velocity: new THREE.Vector3(0, 0, 0),
         mass: 1,
-        isDragging: false
+        isDragging: false,
+        parents: [],
+        incomingBranches: []
     };
     nodeMap[data.id] = node;
     return node;
@@ -448,8 +468,8 @@ function createBranch(parentNode, childNode, isActive) {
     const line = new THREE.Line(geometry, material);
     line.userData = { parentNode, childNode, isActive };
     scene.add(line);
-    childNode.userData.parent = parentNode;
-    childNode.userData.incomingBranch = line;
+    childNode.userData.parents.push(parentNode);
+    childNode.userData.incomingBranches.push(line);
     return line;
 }
 
