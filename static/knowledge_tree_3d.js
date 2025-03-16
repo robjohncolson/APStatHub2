@@ -13,6 +13,7 @@ let branches = []; // Visual branches (lines)
 let uncategorizedNodes = []; // Nodes without connections
 let clock; // For physics timing
 let dragControls; // Drag controls for nodes
+let keyboardControls = { enabled: true }; // Keyboard controls state
 
 // Constants for tree layout and physics
 const NODE_SIZE = 5;
@@ -24,6 +25,8 @@ const INACTIVE_BRANCH_COLOR = 0xaaaaaa;
 const HIGHLIGHT_COLOR = 0xff9900;
 const SPRING_CONSTANT = 0.1; // Stiffness of springs
 const DAMPING = 0.99; // Damping factor for physics
+const KEYBOARD_MOVE_SPEED = 10; // Speed for keyboard movement
+const KEYBOARD_ZOOM_SPEED = 50; // Speed for keyboard zooming
 
 // Initialize the visualization
 function init() {
@@ -31,6 +34,7 @@ function init() {
     createTooltip();
     setupScene();
     setupInteraction();
+    setupKeyboardControls();
     
     // Add a test cube to verify renderer is working
     const cube = new THREE.Mesh(
@@ -112,6 +116,124 @@ function setupScene() {
     
     window.addEventListener('resize', onWindowResize, false);
     console.log('Scene setup complete');
+}
+
+// Set up keyboard controls for navigation
+function setupKeyboardControls() {
+    // Create keyboard controls help div
+    const helpDiv = document.createElement('div');
+    helpDiv.className = 'keyboard-controls-help';
+    helpDiv.style.position = 'absolute';
+    helpDiv.style.bottom = '10px';
+    helpDiv.style.right = '10px';
+    helpDiv.style.background = 'rgba(255,255,255,0.7)';
+    helpDiv.style.padding = '10px';
+    helpDiv.style.borderRadius = '5px';
+    helpDiv.style.zIndex = '100';
+    helpDiv.style.fontSize = '14px';
+    helpDiv.innerHTML = `
+        <h5>Keyboard Controls</h5>
+        <ul style="padding-left: 20px; margin-bottom: 5px;">
+            <li>W/S: Move forward/backward</li>
+            <li>A/D: Move left/right</li>
+            <li>Q/E: Move up/down</li>
+            <li>+/-: Zoom in/out</li>
+            <li>R: Reset view</li>
+            <li>K: Toggle keyboard controls</li>
+        </ul>
+    `;
+    document.body.appendChild(helpDiv);
+    
+    // Add keyboard event listeners
+    window.addEventListener('keydown', handleKeyDown);
+    
+    console.log('Keyboard controls setup complete');
+}
+
+// Handle keyboard input for navigation
+function handleKeyDown(event) {
+    if (!keyboardControls.enabled) return;
+    
+    const key = event.key.toLowerCase();
+    
+    // Movement controls
+    switch (key) {
+        case 'w': // Forward
+            camera.position.z -= KEYBOARD_MOVE_SPEED;
+            break;
+        case 's': // Backward
+            camera.position.z += KEYBOARD_MOVE_SPEED;
+            break;
+        case 'a': // Left
+            camera.position.x -= KEYBOARD_MOVE_SPEED;
+            break;
+        case 'd': // Right
+            camera.position.x += KEYBOARD_MOVE_SPEED;
+            break;
+        case 'q': // Up
+            camera.position.y += KEYBOARD_MOVE_SPEED;
+            break;
+        case 'e': // Down
+            camera.position.y -= KEYBOARD_MOVE_SPEED;
+            break;
+        case '+': // Zoom in
+        case '=': // Also zoom in (same key on most keyboards)
+            camera.position.z -= KEYBOARD_ZOOM_SPEED;
+            break;
+        case '-': // Zoom out
+        case '_': // Also zoom out (shift + minus)
+            camera.position.z += KEYBOARD_ZOOM_SPEED;
+            break;
+        case 'r': // Reset view
+            resetCamera();
+            break;
+        case 'k': // Toggle keyboard controls
+            toggleKeyboardControls();
+            break;
+    }
+    
+    // Update controls target if needed
+    if (controls.target) {
+        controls.update();
+    }
+}
+
+// Reset camera to initial position
+function resetCamera() {
+    camera.position.set(0, 100, 500);
+    if (controls.target) {
+        controls.target.set(0, -LEVEL_HEIGHT, 0);
+        controls.update();
+    }
+    console.log('Camera reset to initial position');
+}
+
+// Toggle keyboard controls on/off
+function toggleKeyboardControls() {
+    keyboardControls.enabled = !keyboardControls.enabled;
+    const status = keyboardControls.enabled ? 'enabled' : 'disabled';
+    
+    // Show temporary notification
+    const notification = document.createElement('div');
+    notification.style.position = 'absolute';
+    notification.style.top = '50%';
+    notification.style.left = '50%';
+    notification.style.transform = 'translate(-50%, -50%)';
+    notification.style.background = 'rgba(0,0,0,0.7)';
+    notification.style.color = 'white';
+    notification.style.padding = '15px';
+    notification.style.borderRadius = '5px';
+    notification.style.zIndex = '1000';
+    notification.style.pointerEvents = 'none';
+    notification.textContent = `Keyboard controls ${status}`;
+    document.body.appendChild(notification);
+    
+    // Remove notification after 2 seconds
+    setTimeout(() => {
+        document.body.removeChild(notification);
+    }, 2000);
+    
+    console.log(`Keyboard controls ${status}`);
 }
 
 // Set up interaction (raycasting for node selection)
