@@ -154,6 +154,9 @@ def group_problem_images(problem_images):
 @app.route('/')
 def index():
     """Home page showing problems with images."""
+    # Check if we should only show uncategorized problems
+    show_uncategorized = request.args.get('show_uncategorized') == 'true'
+    
     # Get all problem images
     problem_images = get_problem_images()
     
@@ -187,10 +190,12 @@ def index():
     conn.close()
     
     # Add topic count and metadata to each standalone problem
+    filtered_standalone_problems = []
     for problem in standalone_problems:
         data = problem_data.get(problem['filename'], {})
-        problem['has_topics'] = data.get('topic_count', 0) > 0
-        problem['topic_count'] = data.get('topic_count', 0)
+        topic_count = data.get('topic_count', 0)
+        problem['has_topics'] = topic_count > 0
+        problem['topic_count'] = topic_count
         
         # Use database values for display if available
         if problem['filename'] in problem_data:
@@ -210,8 +215,13 @@ def index():
             # Update display name with database values
             part_suffix = f" (Part {problem['part']})" if problem['part'] != "1" else ""
             problem['display_name'] = f"{problem['year']} {problem['type']} #{problem['number']}{part_suffix}"
+        
+        # Only add to filtered list if we're showing all problems or if it has no topics
+        if not show_uncategorized or not problem['has_topics']:
+            filtered_standalone_problems.append(problem)
     
     # Add topic information to grouped problems
+    filtered_grouped_problems = {}
     for group_id, group in grouped_problems.items():
         # Check if any part of the group has topics
         group_has_topics = False
@@ -235,6 +245,7 @@ def index():
             # Update group display name
             group['display_name'] = f"{group['year']} {group['type']} #{group['number']}"
         
+        filtered_parts = []
         for part in group['parts']:
             data = problem_data.get(part['filename'], {})
             part_topic_count = data.get('topic_count', 0)
@@ -264,22 +275,31 @@ def index():
                 # Update part display name
                 part_suffix = f" (Part {part['part']})" if part['part'] != "1" else ""
                 part['display_name'] = f"{part['year']} {part['type']} #{part['number']}{part_suffix}"
+            
+            # Only add to filtered parts if we're showing all problems or if it has no topics
+            if not show_uncategorized or not part['has_topics']:
+                filtered_parts.append(part)
         
         group['has_topics'] = group_has_topics
         group['topic_count'] = total_topic_count
+        
+        # Only add group to filtered groups if it has parts after filtering
+        if filtered_parts:
+            group['parts'] = filtered_parts
+            filtered_grouped_problems[group_id] = group
     
     # Group problems by year
     problems_by_year = {}
     
     # Add standalone problems
-    for problem in standalone_problems:
+    for problem in filtered_standalone_problems:
         year = problem['year']
         if year not in problems_by_year:
             problems_by_year[year] = {'standalone': [], 'groups': []}
         problems_by_year[year]['standalone'].append(problem)
     
     # Add grouped problems
-    for group_id, group in grouped_problems.items():
+    for group_id, group in filtered_grouped_problems.items():
         year = group['year']
         if year not in problems_by_year:
             problems_by_year[year] = {'standalone': [], 'groups': []}
@@ -291,7 +311,8 @@ def index():
     return render_template('index.html', 
                           problems_by_year=problems_by_year, 
                           years=sorted_years,
-                          grouped_problems=grouped_problems)
+                          grouped_problems=filtered_grouped_problems,
+                          show_uncategorized=show_uncategorized)
 
 @app.route('/images/<path:filename>')
 def serve_image(filename):
