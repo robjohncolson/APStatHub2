@@ -1,92 +1,55 @@
-# AP Statistics Hub - Release Notes
+# AP Statistics Knowledge Tree 3D Visualization v2.0.0: "StatGlide"
 
-## Version 1.0.0 (Initial Release)
+## Release Notes
 
-**Release Date:** June 2024
+We're thrilled to announce the release of version 2.0.0 of the AP Statistics Knowledge Tree 3D Visualization, codenamed "StatGlide." This major update transforms the way users navigate through the knowledge tree with smooth, precise controls and significant improvements to the overall experience.
 
-### Overview
+### 🌟 Key Features
 
-AP Statistics Hub is a comprehensive web application designed to help AP Statistics teachers and students organize, categorize, and access AP exam problems based on the College Board's knowledge tree. This tool bridges the gap between exam problems and curriculum topics, making it easier to find relevant practice materials for specific statistical concepts.
+- **Multi-tiered Movement Precision**:
+  - **Standard Movement**: Full-speed navigation for quick traversal of the knowledge tree
+  - **Fine Control Mode**: Hold Shift for 1/5 speed, perfect for more deliberate positioning
+  - **Super Fine Control Mode**: Hold Ctrl+Shift for 1/25 speed, enabling pixel-perfect precision
 
-### Key Features
+- **Comprehensive Keyboard Navigation**:
+  - Fixed non-responsive arrow key controls for intuitive directional panning
+  - WASD keys for forward/backward and lateral movement
+  - QE keys for vertical movement
+  - +/- keys for zooming in and out
+  - All movement controls support the new precision modifiers
 
-- **Problem Organization**: View AP Statistics exam problems organized by year and type (Multiple Choice or Free Response)
-- **Knowledge Tree Integration**: Full implementation of the AP Statistics knowledge tree with all units and topics
-- **Topic Tagging**: Assign curriculum topics to exam problems with relevance scores
-- **FRQ Grouping**: Automatically groups related Free Response Question parts together
-- **Metadata Management**: Add and edit problem metadata including:
-  - Year
-  - Problem type (MCQ/FRQ)
-  - Problem number
-  - Description
-  - Difficulty rating
-- **Search Functionality**: Search for problems or topics using keywords
-- **Responsive UI**: Modern, mobile-friendly interface built with Bootstrap
+- **Custom Panning Solution**: Implemented a robust fallback mechanism that ensures consistent panning functionality even when OrbitControls.pan is unavailable
 
-### Technical Details
+- **Enhanced Visual Feedback**: Improved console logging provides clear information about the current control mode and movement vectors
 
-- **Backend**: Python Flask web application
-- **Database**: SQLite for lightweight, portable data storage
-- **Directory Structure**: Organized file system for AP Statistics course materials
-- **Image Support**: Display of problem images with metadata
-- **Relationship Management**: Many-to-many relationships between problems and topics
+### 🛠️ Technical Improvements
 
-### Installation Instructions
+- **Increased Default Movement Speed**: Raised the base PAN_SPEED from 20 to 50 for more noticeable movement
+- **Synchronized Camera Movement**: Enhanced the custom pan function to maintain proper view direction by moving both camera position and target
+- **Consistent Control Experience**: Unified the movement speed calculations across all navigation methods
+- **Improved Debugging Tools**: Added detailed logging of key presses, control states, and movement vectors
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/yourusername/APStatHub.git
-   cd APStatHub
-   ```
+### 📚 User Interface Enhancements
 
-2. Install dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
+- **Updated Help Panel**: Comprehensive on-screen keyboard control reference with all new movement options
+- **Improved Status Notifications**: Clear visual feedback when toggling keyboard controls
+- **Preserved View Direction**: Maintained consistent view orientation during all movement operations
 
-3. Initialize the database and directory structure:
-   ```
-   python create_directory_structure.py
-   python initialize_database.py
-   ```
+### 🐛 Bug Fixes
 
-4. Run the application:
-   ```
-   python app.py
-   ```
+- **Arrow Key Functionality**: Resolved the core issue where arrow keys had no effect on the visualization
+- **Camera-Control Synchronization**: Fixed inconsistencies between camera position and control target during movement
+- **Event Handling**: Improved event.preventDefault() implementation to prevent unwanted browser actions during navigation
 
-5. Access the web interface at `http://localhost:5000`
+### 💡 Implementation Details
 
-### Usage Guide
-
-1. **Viewing Problems**: The home page displays all problems organized by year and type
-2. **Problem Details**: Click on any problem to view its details and associated topics
-3. **Adding Topics**: On the problem detail page, use the form to assign relevant topics
-4. **Editing Metadata**: Click "Edit Metadata" on the problem detail page to update information
-5. **Browsing Topics**: Use the "View Knowledge Tree" button to browse the curriculum structure
-6. **Searching**: Use the search function to find specific problems or topics
-
-### Known Issues
-
-- The application currently only supports problems from Unit 1 (Exploring One-Variable Data)
-- Image filenames should follow the pattern `YYYY_AP_TYPE_##.png` for best automatic metadata extraction
-
-### Future Enhancements
-
-- Support for additional units beyond Unit 1
-- Export functionality for creating practice sets
-- User authentication and role-based access
-- Statistics on topic coverage and problem difficulty
-- Integration with learning management systems
-
-### Contributors
-
-- [Your Name] - Initial development and concept
-
-### License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+- Added detection for both Shift and Ctrl+Shift key combinations
+- Implemented a unified speed multiplier approach for cleaner code
+- Created a custom vector-based panning solution as a fallback
+- Enhanced the keyboard event handling system
 
 ---
 
-Thank you for using AP Statistics Hub! We welcome feedback and contributions to improve this tool for the AP Statistics community. 
+This release represents a significant leap forward from v1.0.0, addressing the core navigation issues while adding powerful new precision controls. The StatGlide update makes exploring the AP Statistics Knowledge Tree more intuitive, precise, and enjoyable for students and educators alike.
+
+Thank you to all users who provided valuable feedback that helped shape this release!
