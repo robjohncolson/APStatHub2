@@ -1,5 +1,5 @@
 // AP Statistics Knowledge Tree 3D Visualization
-// Uses Three.js to create an interactive 3D visualization of the knowledge tree
+// Uses Three.js to create an interactive 3D visualization with draggable nodes, springy connections, and floating uncategorized problems
 
 // Global variables
 let scene, camera, renderer, controls;
@@ -7,8 +7,13 @@ let treeRoot, nodeMap = {};
 let raycaster, mouse;
 let tooltipDiv;
 let highlightedObjects = []; // Track highlighted nodes and branches
+let allNodes = []; // All draggable nodes
+let springs = []; // Spring connections between nodes
+let branches = []; // Visual branches (lines)
+let uncategorizedNodes = []; // Nodes without connections
+let clock; // For physics timing
 
-// Constants for tree layout
+// Constants for tree layout and physics
 const NODE_SIZE = 5;
 const LEVEL_HEIGHT = 100;
 const SIBLING_SPREAD = 80;
@@ -16,7 +21,8 @@ const BRANCH_COLOR = 0x555555;
 const ACTIVE_BRANCH_COLOR = 0x00aa00;
 const INACTIVE_BRANCH_COLOR = 0xaaaaaa;
 const HIGHLIGHT_COLOR = 0xff9900;
-const PAN_SPEED = 20; // Controls how far the view moves per key press
+const SPRING_CONSTANT = 0.1; // Stiffness of springs
+const DAMPING = 0.99; // Damping factor for physics
 
 // Initialize the visualization
 function init() {
@@ -25,44 +31,6 @@ function init() {
     setupInteraction();
     loadKnowledgeTreeData();
     animate();
-
-    // Add keyboard controls for panning and reset view
-    window.addEventListener('keydown', (event) => {
-        if (event.key === 'ArrowLeft') {
-            // Pan left: Move along the negative X-axis in camera space
-            const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
-            const panVector = right.negate().multiplyScalar(PAN_SPEED);
-            camera.position.add(panVector);
-            controls.target.add(panVector);
-            controls.update();
-        } else if (event.key === 'ArrowRight') {
-            // Pan right: Move along the positive X-axis in camera space
-            const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
-            const panVector = right.multiplyScalar(PAN_SPEED);
-            camera.position.add(panVector);
-            controls.target.add(panVector);
-            controls.update();
-        } else if (event.key === 'ArrowUp') {
-            // Pan up: Move along the positive Y-axis in camera space
-            const up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
-            const panVector = up.multiplyScalar(PAN_SPEED);
-            camera.position.add(panVector);
-            controls.target.add(panVector);
-            controls.update();
-        } else if (event.key === 'ArrowDown') {
-            // Pan down: Move along the negative Y-axis in camera space
-            const up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
-            const panVector = up.negate().multiplyScalar(PAN_SPEED);
-            camera.position.add(panVector);
-            controls.target.add(panVector);
-            controls.update();
-        } else if (event.key === 'r' || event.key === 'R') {
-            // Reset view (existing functionality)
-            camera.position.set(0, 100, 500);
-            controls.target.set(0, -LEVEL_HEIGHT, 0);
-            controls.update();
-        }
-    });
 }
 
 // Create tooltip div for displaying node information on hover
@@ -79,7 +47,6 @@ function createTooltip() {
     tooltipDiv.style.visibility = 'hidden';
     tooltipDiv.style.fontFamily = 'Arial, sans-serif';
     tooltipDiv.style.fontSize = '14px';
-    tooltipDiv.style.lineHeight = '1.5';
     document.body.appendChild(tooltipDiv);
 }
 
@@ -188,7 +155,6 @@ function checkIntersections() {
 
 // Highlight the node, its parent, and the connecting branch
 function highlightImmediatePath(node) {
-    // Reset previous highlights
     highlightedObjects.forEach(obj => {
         if (obj.userData.type) { // Node
             obj.material.color.setHex(obj.userData.isActive ? ACTIVE_BRANCH_COLOR : INACTIVE_BRANCH_COLOR);
@@ -198,11 +164,9 @@ function highlightImmediatePath(node) {
     });
     highlightedObjects = [];
     
-    // Highlight the node itself
     node.material.color.setHex(HIGHLIGHT_COLOR);
     highlightedObjects.push(node);
     
-    // Highlight parent and incoming branch, if they exist
     if (node.userData.parent) {
         const parent = node.userData.parent;
         const branch = node.userData.incomingBranch;
@@ -240,6 +204,7 @@ function buildTree(data) {
     }, 0);
     treeRoot.position.set(0, 0, 0);
     scene.add(treeRoot);
+    allNodes.push(treeRoot);
     
     const units = data.units;
     const unitSpread = units.length * SIBLING_SPREAD / 2;
@@ -258,8 +223,12 @@ function buildTree(data) {
         }, 1);
         unitNode.position.set(unitX, unitY, 0);
         scene.add(unitNode);
+        allNodes.push(unitNode);
         
-        createBranch(treeRoot, unitNode, unit.has_problems);
+        const branch = createBranch(treeRoot, unitNode, unit.has_problems);
+        branches.push(branch);
+        const restLength = treeRoot.position.distanceTo(unitNode.position);
+        springs.push({nodeA: treeRoot, nodeB: unitNode, restLength});
         
         const topics = unit.topics;
         const topicSpread = topics.length * SIBLING_SPREAD / 2;
@@ -277,8 +246,12 @@ function buildTree(data) {
             }, 2);
             topicNode.position.set(topicX, topicY, 0);
             scene.add(topicNode);
+            allNodes.push(topicNode);
             
-            createBranch(unitNode, topicNode, topic.has_problems);
+            const branch = createBranch(unitNode, topicNode, topic.has_problems);
+            branches.push(branch);
+            const restLength = unitNode.position.distanceTo(topicNode.position);
+            springs.push({nodeA: unitNode, nodeB: topicNode, restLength});
             
             if (topic.has_problems && topic.problems) {
                 const problems = topic.problems;
@@ -297,12 +270,50 @@ function buildTree(data) {
                     });
                     problemNode.position.set(problemX, problemY, 0);
                     scene.add(problemNode);
+                    allNodes.push(problemNode);
                     
-                    createBranch(topicNode, problemNode, true);
+                    const branch = createBranch(topicNode, problemNode, true);
+                    branches.push(branch);
+                    const restLength = topicNode.position.distanceTo(problemNode.position);
+                    springs.push({nodeA: topicNode, nodeB: problemNode, restLength});
                 });
             }
         });
     });
+    
+    // Create uncategorized problem nodes
+    if (data.uncategorized_problems) {
+        data.uncategorized_problems.forEach(problem => {
+            const problemNode = createProblemNode({
+                id: problem.problem_id,
+                name: problem.display_name,
+                type: 'problem',
+                filename: problem.filename,
+                tooltip: `<b>${problem.display_name}</b> (Uncategorized)`
+            });
+            problemNode.position.set(
+                (Math.random() - 0.5) * 1000,
+                (Math.random() - 0.5) * 1000,
+                (Math.random() - 0.5) * 1000
+            );
+            scene.add(problemNode);
+            allNodes.push(problemNode);
+            uncategorizedNodes.push(problemNode);
+        });
+    }
+    
+    // Initialize DragControls for all nodes
+    const dragControls = new THREE.DragControls(allNodes, camera, renderer.domElement);
+    dragControls.addEventListener('dragstart', function(event) {
+        event.object.userData.isDragging = true;
+    });
+    dragControls.addEventListener('dragend', function(event) {
+        event.object.userData.isDragging = false;
+        event.object.userData.velocity.set(0, 0, 0); // Reset velocity on release
+    });
+    
+    // Initialize clock for physics timing
+    clock = new THREE.Clock();
     
     controls.target.set(0, -LEVEL_HEIGHT, 0);
     controls.update();
@@ -319,6 +330,9 @@ function createNode(data, level) {
     
     node.userData = data;
     node.userData.isActive = data.hasProblems;
+    node.userData.velocity = new THREE.Vector3(0, 0, 0);
+    node.userData.mass = 1;
+    node.userData.isDragging = false;
     nodeMap[data.id] = node;
     
     return node;
@@ -339,6 +353,9 @@ function createProblemNode(data) {
     
     node.userData = data;
     node.userData.isActive = true;
+    node.userData.velocity = new THREE.Vector3(0, 0, 0);
+    node.userData.mass = 1;
+    node.userData.isDragging = false;
     nodeMap[data.id] = node;
     
     return node;
@@ -362,17 +379,69 @@ function createBranch(parentNode, childNode, isActive) {
     line.userData.isActive = isActive;
     scene.add(line);
     
-    parentNode.userData.outgoingBranches = parentNode.userData.outgoingBranches || [];
-    parentNode.userData.outgoingBranches.push(line);
-    childNode.userData.incomingBranch = line;
-    childNode.userData.parent = parentNode;
-    
     return line;
 }
 
-// Animation loop
+// Animation loop with physics simulation
 function animate() {
     requestAnimationFrame(animate);
+    
+    const deltaTime = clock.getDelta();
+    
+    // Physics step
+    allNodes.forEach(node => {
+        node.userData.totalForce = new THREE.Vector3(0, 0, 0);
+    });
+    
+    // Apply spring forces
+    springs.forEach(spring => {
+        const nodeA = spring.nodeA;
+        const nodeB = spring.nodeB;
+        const currentLength = nodeA.position.distanceTo(nodeB.position);
+        if (currentLength > 0) {
+            const displacement = currentLength - spring.restLength;
+            const forceMagnitude = SPRING_CONSTANT * displacement;
+            const direction = new THREE.Vector3().subVectors(nodeB.position, nodeA.position).normalize();
+            const force = direction.multiplyScalar(forceMagnitude);
+            nodeA.userData.totalForce.add(force);
+            nodeB.userData.totalForce.sub(force);
+        }
+    });
+    
+    // Apply random forces to uncategorized nodes
+    uncategorizedNodes.forEach(node => {
+        const randomForce = new THREE.Vector3(
+            (Math.random() - 0.5) * 0.2,
+            (Math.random() - 0.5) * 0.2,
+            (Math.random() - 0.5) * 0.2
+        );
+        node.userData.totalForce.add(randomForce);
+    });
+    
+    // Update velocities and positions
+    allNodes.forEach(node => {
+        if (!node.userData.isDragging) {
+            const acceleration = node.userData.totalForce.clone().divideScalar(node.userData.mass);
+            node.userData.velocity.add(acceleration.multiplyScalar(deltaTime));
+            node.userData.velocity.multiplyScalar(DAMPING);
+            node.position.add(node.userData.velocity.clone().multiplyScalar(deltaTime));
+        }
+    });
+    
+    // Update branch geometries
+    branches.forEach(branch => {
+        const nodeA = branch.userData.parentNode;
+        const nodeB = branch.userData.childNode;
+        const positions = branch.geometry.attributes.position.array;
+        positions[0] = nodeA.position.x;
+        positions[1] = nodeA.position.y;
+        positions[2] = nodeA.position.z;
+        positions[3] = nodeB.position.x;
+        positions[4] = nodeB.position.y;
+        positions[5] = nodeB.position.z;
+        branch.geometry.attributes.position.needsUpdate = true;
+    });
+    
     controls.update();
     renderer.render(scene, camera);
 }
