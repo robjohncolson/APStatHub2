@@ -131,6 +131,7 @@ function setupKeyboardControls() {
             <li>Q/E: Move up/down</li>
             <li>+/-: Zoom in/out</li>
             <li>Arrow Keys: Pan view</li>
+            <li>Shift + Any Movement Key: Fine control (1/5 speed)</li>
             <li>R: Reset view</li>
             <li>K: Toggle controls</li>
         </ul>
@@ -182,79 +183,92 @@ function handleKeyDown(event) {
     if (!keyboardControls.enabled) return;
     const key = event.key.toLowerCase();
     let panVector = new THREE.Vector3();
+    
+    // Check if shift key is pressed for fine control
+    const isShiftPressed = event.shiftKey;
+    // Adjust pan speed based on shift key state
+    const currentPanSpeed = isShiftPressed ? PAN_SPEED / 5 : PAN_SPEED;
+    // Also adjust keyboard movement speed
+    const currentMoveSpeed = isShiftPressed ? KEYBOARD_MOVE_SPEED / 5 : KEYBOARD_MOVE_SPEED;
+    // And zoom speed
+    const currentZoomSpeed = isShiftPressed ? KEYBOARD_ZOOM_SPEED / 5 : KEYBOARD_ZOOM_SPEED;
+    
+    if (isShiftPressed) {
+        console.log('Shift key pressed - using fine control mode with speed:', currentPanSpeed);
+    }
 
     switch (key) {
         case 'w':
-            camera.position.z -= KEYBOARD_MOVE_SPEED;
+            camera.position.z -= currentMoveSpeed;
             break;
         case 's':
-            camera.position.z += KEYBOARD_MOVE_SPEED;
+            camera.position.z += currentMoveSpeed;
             break;
         case 'a':
-            camera.position.x -= KEYBOARD_MOVE_SPEED;
+            camera.position.x -= currentMoveSpeed;
             break;
         case 'd':
-            camera.position.x += KEYBOARD_MOVE_SPEED;
+            camera.position.x += currentMoveSpeed;
             break;
         case 'q':
-            camera.position.y += KEYBOARD_MOVE_SPEED;
+            camera.position.y += currentMoveSpeed;
             break;
         case 'e':
-            camera.position.y -= KEYBOARD_MOVE_SPEED;
+            camera.position.y -= currentMoveSpeed;
             break;
         case '+':
         case '=':
-            camera.position.z -= KEYBOARD_ZOOM_SPEED;
+            camera.position.z -= currentZoomSpeed;
             break;
         case '-':
         case '_':
-            camera.position.z += KEYBOARD_ZOOM_SPEED;
+            camera.position.z += currentZoomSpeed;
             break;
         case 'arrowleft':
             // Pan left: negative right vector
-            panVector.setFromMatrixColumn(camera.matrix, 0).negate().multiplyScalar(PAN_SPEED);
+            panVector.setFromMatrixColumn(camera.matrix, 0).negate().multiplyScalar(currentPanSpeed);
             console.log('Panning left with vector:', panVector);
             if (typeof controls.pan === 'function') {
                 controls.pan(panVector);
             } else {
                 console.log('Using custom pan function for left arrow');
-                customPan('left', PAN_SPEED);
+                customPan('left', currentPanSpeed);
             }
             event.preventDefault();
             break;
         case 'arrowright':
             // Pan right: positive right vector
-            panVector.setFromMatrixColumn(camera.matrix, 0).multiplyScalar(PAN_SPEED);
+            panVector.setFromMatrixColumn(camera.matrix, 0).multiplyScalar(currentPanSpeed);
             console.log('Panning right with vector:', panVector);
             if (typeof controls.pan === 'function') {
                 controls.pan(panVector);
             } else {
                 console.log('Using custom pan function for right arrow');
-                customPan('right', PAN_SPEED);
+                customPan('right', currentPanSpeed);
             }
             event.preventDefault();
             break;
         case 'arrowup':
             // Pan up: positive up vector
-            panVector.setFromMatrixColumn(camera.matrix, 1).multiplyScalar(PAN_SPEED);
+            panVector.setFromMatrixColumn(camera.matrix, 1).multiplyScalar(currentPanSpeed);
             console.log('Panning up with vector:', panVector);
             if (typeof controls.pan === 'function') {
                 controls.pan(panVector);
             } else {
                 console.log('Using custom pan function for up arrow');
-                customPan('up', PAN_SPEED);
+                customPan('up', currentPanSpeed);
             }
             event.preventDefault();
             break;
         case 'arrowdown':
             // Pan down: negative up vector
-            panVector.setFromMatrixColumn(camera.matrix, 1).negate().multiplyScalar(PAN_SPEED);
+            panVector.setFromMatrixColumn(camera.matrix, 1).negate().multiplyScalar(currentPanSpeed);
             console.log('Panning down with vector:', panVector);
             if (typeof controls.pan === 'function') {
                 controls.pan(panVector);
             } else {
                 console.log('Using custom pan function for down arrow');
-                customPan('down', PAN_SPEED);
+                customPan('down', currentPanSpeed);
             }
             event.preventDefault();
             break;
