@@ -116,12 +116,42 @@ function createUI() {
             <p>4. Faster completion = higher score!</p>
             <p>5. Follow the yellow path for guidance</p>
         </div>
-        <button id="start-game" style="width: 100%; padding: 8px; margin-top: 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Start Game</button>
+        <button id="start-game" style="width: 100%; padding: 8px; margin-top: 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold;">START GAME</button>
     `;
     document.body.appendChild(infoPanel);
     
     // Add event listener to start game button
     document.getElementById('start-game').addEventListener('click', startGame);
+    
+    // Create a prominent start button in the center of the screen
+    const centerStartButton = document.createElement('div');
+    centerStartButton.style.position = 'absolute';
+    centerStartButton.style.top = '50%';
+    centerStartButton.style.left = '50%';
+    centerStartButton.style.transform = 'translate(-50%, -50%)';
+    centerStartButton.style.zIndex = '1000';
+    centerStartButton.style.padding = '20px 40px';
+    centerStartButton.style.background = '#4CAF50';
+    centerStartButton.style.color = 'white';
+    centerStartButton.style.fontSize = '24px';
+    centerStartButton.style.fontWeight = 'bold';
+    centerStartButton.style.borderRadius = '10px';
+    centerStartButton.style.cursor = 'pointer';
+    centerStartButton.style.boxShadow = '0 0 20px rgba(0, 255, 0, 0.5)';
+    centerStartButton.style.textAlign = 'center';
+    centerStartButton.innerHTML = 'START RACING!<br><small style="font-size: 14px;">First click a problem node, then click this button</small>';
+    centerStartButton.id = 'center-start-button';
+    document.body.appendChild(centerStartButton);
+    
+    // Add event listener to center start button
+    centerStartButton.addEventListener('click', () => {
+        if (!currentNode) {
+            alert('Please select a starting problem by clicking on it first!');
+            return;
+        }
+        startGame();
+        centerStartButton.style.display = 'none'; // Hide the button after starting
+    });
 }
 
 // Set up the Three.js scene, camera, renderer, and controls
@@ -724,11 +754,50 @@ function startGame() {
     createPlayer();
     
     // Update UI
-    document.getElementById('start-game').textContent = 'Game Started!';
+    document.getElementById('start-game').textContent = 'GAME STARTED!';
     document.getElementById('start-game').disabled = true;
+    document.getElementById('start-game').style.background = '#888888';
     
-    // Position camera behind player
-    positionCameraBehindPlayer();
+    // Hide the center start button if it exists
+    const centerButton = document.getElementById('center-start-button');
+    if (centerButton) {
+        centerButton.style.display = 'none';
+    }
+    
+    // Show a countdown before starting
+    const countdownOverlay = document.createElement('div');
+    countdownOverlay.style.position = 'absolute';
+    countdownOverlay.style.top = '50%';
+    countdownOverlay.style.left = '50%';
+    countdownOverlay.style.transform = 'translate(-50%, -50%)';
+    countdownOverlay.style.zIndex = '1001';
+    countdownOverlay.style.color = 'white';
+    countdownOverlay.style.fontSize = '100px';
+    countdownOverlay.style.fontWeight = 'bold';
+    countdownOverlay.style.textShadow = '0 0 20px rgba(255, 255, 255, 0.7)';
+    document.body.appendChild(countdownOverlay);
+    
+    // Countdown from 3
+    let countdown = 3;
+    countdownOverlay.textContent = countdown;
+    
+    const countdownInterval = setInterval(() => {
+        countdown--;
+        if (countdown > 0) {
+            countdownOverlay.textContent = countdown;
+        } else if (countdown === 0) {
+            countdownOverlay.textContent = 'GO!';
+        } else {
+            clearInterval(countdownInterval);
+            document.body.removeChild(countdownOverlay);
+            
+            // Position camera behind player
+            positionCameraBehindPlayer();
+            
+            // Reset race timer
+            raceTime = 0;
+        }
+    }, 1000);
 }
 
 // Position camera behind player
@@ -1169,5 +1238,4 @@ function checkNodeCollisions() {
 }
 
 // Initialize when the DOM is ready
-document.addEventListener('DOMContentLoaded', init); 
 document.addEventListener('DOMContentLoaded', init); 
