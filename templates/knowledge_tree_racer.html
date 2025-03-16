@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AP Statistics Knowledge Tree Racer</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        #tree-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        .controls { position: absolute; top: 10px; left: 10px; z-index: 100; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px; }
+        .legend { position: absolute; bottom: 10px; left: 10px; z-index: 100; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px; color: white; }
+        .legend-item { display: flex; align-items: center; margin-bottom: 5px; }
+        .legend-color { width: 20px; height: 20px; margin-right: 10px; border-radius: 50%; }
+        .active-branch { background-color: #00aa00; }
+        .inactive-branch { background-color: #aaaaaa; }
+        .highlight { background-color: #ff9900; }
+        .player-color { background-color: #0066ff; }
+        .target-color { background-color: #ff0000; }
+        .path-color { background-color: #ffcc00; }
+    </style>
+</head>
+<body>
+    <div id="tree-container"></div>
+    
+    <div class="controls">
+        <a href="{{ url_for('index') }}" class="btn btn-primary">Back to Problems</a>
+        <a href="{{ url_for('topics') }}" class="btn btn-secondary">View Knowledge Tree</a>
+        <a href="{{ url_for('knowledge_tree_3d') }}" class="btn btn-info">View 3D Tree</a>
+    </div>
+    
+    <div class="legend">
+        <h5>Legend</h5>
+        <div class="legend-item">
+            <div class="legend-color player-color"></div>
+            <span>Your Position</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color target-color"></div>
+            <span>Target Problem</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color path-color"></div>
+            <span>Path to Target</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color active-branch"></div>
+            <span>Active Topic (Has Problems)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color inactive-branch"></div>
+            <span>Inactive Topic (No Problems)</span>
+        </div>
+    </div>
+    
+    <!-- Three.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    
+    <!-- Knowledge Tree Racer Script -->
+    <script src="{{ url_for('static', filename='knowledge_tree_racer.js') }}"></script>
+</body>
+</html> 

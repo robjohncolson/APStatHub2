@@ -770,6 +770,11 @@ def knowledge_tree_3d():
     """Page showing the 3D visualization of the knowledge tree."""
     return render_template('knowledge_tree_3d.html')
 
+@app.route('/knowledge_tree_racer')
+def knowledge_tree_racer():
+    """Page showing the 3D racer game through the knowledge tree."""
+    return render_template('knowledge_tree_racer.html')
+
 if __name__ == '__main__':
     # Create templates directory if it doesn't exist
     if not os.path.exists('templates'):
