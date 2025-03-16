@@ -1,73 +1,127 @@
-# AP Statistics Knowledge Tree Database
+# AP Statistics Hub
 
-This project creates a database and web interface for managing AP Statistics problems and their relationships to topics in the AP Statistics curriculum.
+A comprehensive web application for organizing, categorizing, and accessing AP Statistics exam problems based on the College Board's knowledge tree.
 
-## Features
+![AP Statistics Hub](https://via.placeholder.com/800x400?text=AP+Statistics+Hub)
 
-- Directory structure that mirrors the AP Statistics knowledge tree
-- SQLite database to store problems, topics, and their relationships
-- Web interface for browsing, searching, and managing the database
-- Support for many-to-many relationships between problems and topics
-- Relevance scoring to indicate how strongly a problem relates to a topic
+## 🎯 Purpose
 
-## Setup
+AP Statistics Hub bridges the gap between exam problems and curriculum topics, making it easier for teachers and students to find relevant practice materials for specific statistical concepts. The application allows users to:
 
-1. First, create the directory structure:
+- Browse AP Statistics exam problems organized by year and type
+- View the complete AP Statistics knowledge tree with all units and topics
+- Assign curriculum topics to exam problems with relevance scores
+- Search for problems or topics using keywords
 
-```bash
-python create_structured_tree.py
-```
+## ✨ Features
 
-2. Initialize the database with the knowledge tree:
+### Problem Organization
+- View problems organized by year and type (Multiple Choice or Free Response)
+- Automatic grouping of related Free Response Question parts
+- Visual indicators for problems with assigned topics
 
-```bash
-python ap_stats_db.py
-```
+### Knowledge Tree Integration
+- Complete implementation of the AP Statistics curriculum structure
+- All units and topics from the College Board's knowledge tree
+- Easy navigation between related topics
 
-3. Install the required dependencies:
+### Metadata Management
+- Add and edit problem metadata:
+  - Year
+  - Problem type (MCQ/FRQ)
+  - Problem number
+  - Description
+  - Difficulty rating (1-5 scale)
 
-```bash
-pip install -r requirements.txt
-```
+### Topic Tagging
+- Assign curriculum topics to exam problems
+- Set relevance scores for topic-problem relationships
+- Add notes to explain topic connections
 
-4. Run the web application:
+## 🛠️ Installation
 
-```bash
-python app.py
-```
+### Prerequisites
+- Python 3.7+
+- pip (Python package manager)
 
-5. Open your browser and navigate to http://127.0.0.1:5000/
+### Setup
 
-## Usage
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/APStatHub.git
+   cd APStatHub
+   ```
 
-### Directory Structure
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-The `create_structured_tree.py` script creates a directory structure based on the AP Statistics curriculum, with folders for each unit and topic.
+3. Initialize the database and directory structure:
+   ```bash
+   python create_directory_structure.py
+   python initialize_database.py
+   ```
 
-### Database
+4. Run the application:
+   ```bash
+   python app.py
+   ```
 
-The `ap_stats_db.py` script creates a SQLite database (`ap_stats.db`) with tables for:
-- Units
-- Topics
-- Problems
-- Problem-Topic relationships
+5. Access the web interface at `http://localhost:5000`
 
-It also imports the knowledge tree structure and can import problem assignments from markdown files.
+## 📖 Usage
 
-### Web Interface
+### Viewing Problems
+The home page displays all problems organized by year and type. Problems with assigned topics are highlighted with a green border, while those without topics have a red border.
 
-The web interface allows you to:
-- Browse the knowledge tree
-- View topics and their related problems
-- View problems and their related topics
-- Add new problems
-- Link problems to topics
-- Search for problems and topics
+### Problem Details
+Click on any problem to view its details, including:
+- The problem image
+- Metadata (year, type, number, description, difficulty)
+- Associated topics
+- For FRQs, links to other parts of the same question
 
-## Future Enhancements
+### Adding Topics
+On the problem detail page, use the form to assign relevant topics:
+1. Select a topic from the dropdown
+2. Set a relevance score (1-5)
+3. Add optional notes
+4. For FRQs, choose whether to apply to all parts
+5. Click "Add Topic"
 
-- Integration with Supabase for cloud storage
-- File upload for problem statements and solutions
+### Editing Metadata
+Click "Edit Metadata" on the problem detail page to update information about the problem.
+
+### Browsing Topics
+Use the "View Knowledge Tree" button to browse the curriculum structure. Click on any topic to see related problems.
+
+## 🔄 Data Structure
+
+The application uses a SQLite database with the following tables:
+- `units`: AP Statistics curriculum units
+- `topics`: Individual topics within each unit
+- `problems`: Exam problems with metadata
+- `problem_topics`: Many-to-many relationships between problems and topics
+
+## 🚀 Future Enhancements
+
+- Support for additional units beyond Unit 1
+- Export functionality for creating practice sets
 - User authentication and role-based access
-- Analytics to identify gaps in problem coverage
-- Visualization of the knowledge tree and problem relationships 
+- Statistics on topic coverage and problem difficulty
+- Integration with learning management systems
+
+## 👥 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🙏 Acknowledgments
+
+- College Board for the AP Statistics curriculum framework
+- Flask team for the web framework
+- Bootstrap team for the UI components 
