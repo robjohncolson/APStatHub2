@@ -3,6 +3,7 @@ import sqlite3
 import os
 import re
 import glob
+import time
 
 app = Flask(__name__)
 app.secret_key = 'apstats_secret_key'  # For flash messages and session
@@ -254,6 +255,7 @@ def index():
         # Check if any part of the group has topics
         group_has_topics = False
         total_topic_count = 0
+        filtered_parts = []
         
         # Use the year from the database for the first part if available
         first_part = group['parts'][0] if group['parts'] else None
@@ -273,10 +275,11 @@ def index():
             # Update group display name
             group['display_name'] = f"{group['year']} {group['type']} #{group['number']}"
         
-        filtered_parts = []
         for part in group['parts']:
             data = problem_data.get(part['filename'], {})
             part_topic_count = data.get('topic_count', 0)
+            
+            # If any part has topics, the whole group has topics
             if part_topic_count > 0:
                 group_has_topics = True
                 total_topic_count += part_topic_count
@@ -284,6 +287,12 @@ def index():
             # Also add to individual parts
             part['has_topics'] = part_topic_count > 0
             part['topic_count'] = part_topic_count
+            
+            # If the group has topics, mark all parts as having topics
+            if group_has_topics:
+                part['has_topics'] = True
+                if part['topic_count'] == 0:
+                    part['topic_count'] = total_topic_count
             
             # Use database values for display if available
             if part['filename'] in problem_data:
@@ -608,13 +617,21 @@ def add_problem_topic():
             year = year_match.group(1)
             frq_num = num_match.group(1)
             
-            # Find all parts of this FRQ
-            part_pattern = f"{year}.*(?:FRQ|Frq){frq_num}"
+            # Improved pattern matching for finding all parts of this FRQ
+            # This will match patterns like "2019_AP_FRQ1-1.png", "2019_AP_FRQ1-2.png", etc.
+            part_pattern = f"{year}%(?:FRQ|Frq){frq_num}%"
+            
+            # Log the pattern for debugging
+            print(f"Searching for FRQ parts with pattern: {part_pattern}")
+            
             group_parts = conn.execute('''
                 SELECT * FROM problems 
                 WHERE problem_number LIKE ?
                 ORDER BY problem_number
-            ''', (f"%{part_pattern}%",)).fetchall()
+            ''', (part_pattern,)).fetchall()
+            
+            # Log the number of parts found for debugging
+            print(f"Found {len(group_parts)} parts for FRQ #{frq_num}")
     
     # If applying to a group, add the topic to all parts
     if apply_to_group and group_parts:
@@ -630,6 +647,7 @@ def add_problem_topic():
                     INSERT INTO problem_topics (problem_id, topic_id, relevance_score, notes)
                     VALUES (?, ?, ?, ?)
                 ''', (part['problem_id'], topic_id, relevance_score, notes))
+                print(f"Added topic to part {part['problem_number']}")
         
         conn.commit()
         flash(f'Topic added to all parts of FRQ #{num_match.group(1)} successfully!')
@@ -653,7 +671,11 @@ def add_problem_topic():
     
     conn.close()
     
-    return redirect(url_for('problem_detail', filename=problem['problem_number']))
+    # Clear any cached data in the session that might affect display
+    if 'problem_data_cache' in session:
+        session.pop('problem_data_cache')
+    
+    return redirect(url_for('problem_detail', filename=problem['problem_number'], _=time.time()))
 
 @app.route('/remove_problem_topic', methods=['POST'])
 def remove_problem_topic():
