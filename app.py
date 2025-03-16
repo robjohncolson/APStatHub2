@@ -929,12 +929,53 @@ if __name__ == '__main__':
                     </div>
                 </div>
                 
+                <!-- Filter Controls -->
+                <div class="row mb-3">
+                    <div class="col">
+                        <!-- Unit Filter Dropdown -->
+                        <div class="dropdown d-inline-block me-2">
+                            <button class="btn btn-info dropdown-toggle" type="button" id="unitFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-filter"></i> 
+                                {% if unit_filter %}
+                                Unit {{ unit_filter }} Filter
+                                {% else %}
+                                Filter by Unit
+                                {% endif %}
+                            </button>
+                            <ul class="dropdown-menu" aria-labelledby="unitFilterDropdown">
+                                <li><a class="dropdown-item {% if not unit_filter %}active{% endif %}" href="{{ url_for('index', show_uncategorized=show_uncategorized) }}">All Units</a></li>
+                                {% for unit_dir in unit_dirs %}
+                                {% set unit_num = unit_dir.split(' ')[1].split('-')[0] %}
+                                <li><a class="dropdown-item {% if unit_filter == unit_num %}active{% endif %}" href="{{ url_for('index', unit_filter=unit_num, show_uncategorized=show_uncategorized) }}">{{ unit_dir }}</a></li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        
+                        <!-- Uncategorized Filter -->
+                        {% if show_uncategorized %}
+                        <a href="{{ url_for('index', unit_filter=unit_filter, show_uncategorized='false') }}" class="btn btn-danger">
+                            <i class="bi bi-funnel-fill"></i> Show All Problems
+                        </a>
+                        {% else %}
+                        <a href="{{ url_for('index', show_uncategorized='true', unit_filter=unit_filter) }}" class="btn btn-warning">
+                            <i class="bi bi-funnel"></i> Show Only Uncategorized
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                
                 <div class="row mb-3">
                     <div class="col">
                         <div class="alert alert-info">
                             <strong>Legend:</strong>
                             <span class="badge bg-success">YES</span> Problem has topics assigned
                             <span class="badge bg-danger">NO</span> Problem has no topics assigned
+                            {% if show_uncategorized %}
+                            <br><strong>Filter:</strong> Showing only problems without topics assigned
+                            {% endif %}
+                            {% if unit_filter %}
+                            <br><strong>Unit Filter:</strong> Showing only Unit {{ unit_filter }} problems
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -1005,6 +1046,9 @@ if __name__ == '__main__':
                 
                 {% endfor %}
             </div>
+            
+            <!-- Bootstrap JS for dropdown functionality -->
+            <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
         </body>
         </html>
         ''',
