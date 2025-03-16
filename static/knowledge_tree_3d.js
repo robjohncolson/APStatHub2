@@ -1,590 +1,284 @@
-// AP Statistics Knowledge Tree 3D Visualization
-// Uses Three.js to create an interactive 3D visualization with draggable nodes, springy connections, and floating uncategorized problems
-
-// Global variables
-let scene, camera, renderer, controls;
-let treeRoot, nodeMap = {};
-let raycaster, mouse;
-let tooltipDiv;
-let highlightedObjects = [];
-let allNodes = [];
-let springs = [];
-let branches = [];
-let uncategorizedNodes = [];
-let clock;
-let dragControls;
-let keyboardControls = { enabled: true };
-
-// Constants for tree layout and physics
-const NODE_SIZE = 5;
-const LEVEL_HEIGHT = 100;
-const SIBLING_SPREAD = 80;
-const BRANCH_COLOR = 0x555555;
-const ACTIVE_BRANCH_COLOR = 0x00aa00;
-const INACTIVE_BRANCH_COLOR = 0xaaaaaa;
-const HIGHLIGHT_COLOR = 0xff9900;
-const SPRING_CONSTANT = 0.1;
-const DAMPING = 0.99;
-const KEYBOARD_MOVE_SPEED = 10;
-const KEYBOARD_ZOOM_SPEED = 50;
-const UNIT_HEIGHT_MIN = -400; // Lowest height for Unit 1
-const UNIT_HEIGHT_MAX = 400;  // Highest height for Unit 9
-
-// Initialize the visualization
-function init() {
-    console.log('Initializing 3D Knowledge Tree...');
-    createTooltip();
-    setupScene();
-    setupInteraction();
-    setupKeyboardControls();
-    
-    const cube = new THREE.Mesh(
-        new THREE.BoxGeometry(20, 20, 20),
-        new THREE.MeshBasicMaterial({ color: 0xff0000 })
-    );
-    cube.position.set(0, 0, 0);
-    scene.add(cube);
-    console.log('Added test cube to scene');
-    
-    loadKnowledgeTreeData();
-    animate();
-}
-
-// Create tooltip div
-function createTooltip() {
-    tooltipDiv = document.createElement('div');
-    tooltipDiv.className = 'tooltip';
-    tooltipDiv.style.position = 'absolute';
-    tooltipDiv.style.padding = '10px';
-    tooltipDiv.style.background = 'rgba(0,0,0,0.7)';
-    tooltipDiv.style.color = 'white';
-    tooltipDiv.style.borderRadius = '5px';
-    tooltipDiv.style.pointerEvents = 'none';
-    tooltipDiv.style.zIndex = '999';
-    tooltipDiv.style.visibility = 'hidden';
-    tooltipDiv.style.fontFamily = 'Arial, sans-serif';
-    tooltipDiv.style.fontSize = '14px';
-    document.body.appendChild(tooltipDiv);
-    console.log('Tooltip created');
-}
-
-// Set up scene, camera, renderer, and controls
-function setupScene() {
-    console.log('Setting up scene...');
-    console.log('Window size:', window.innerWidth, window.innerHeight);
-    
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf0f0f0);
-    
-    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 5000);
-    camera.position.set(0, 0, 1000); // Adjusted for larger vertical spread
-    
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    
-    const container = document.getElementById('tree-container');
-    if (!container) {
-        console.error('Container element #tree-container not found!');
-        return;
-    }
-    container.appendChild(renderer.domElement);
-    console.log('Renderer added to container');
-    
-    if (typeof THREE.OrbitControls === 'undefined') {
-        console.error('THREE.OrbitControls is not defined!');
-        controls = { update: function() {} };
-    } else {
-        controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.25;
-    }
-    
-    const ambientLight = new THREE.AmbientLight(0xcccccc, 0.5);
-    scene.add(ambientLight);
-    
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(1, 1, 1).normalize();
-    scene.add(directionalLight);
-    
-    const pointLight = new THREE.PointLight(0xffffff, 1, 1000);
-    pointLight.position.set(0, 0, 200);
-    scene.add(pointLight);
-    
-    window.addEventListener('resize', onWindowResize, false);
-    console.log('Scene setup complete');
-}
-
-// Keyboard controls setup (unchanged)
-function setupKeyboardControls() {
-    const helpDiv = document.createElement('div');
-    helpDiv.className = 'keyboard-controls-help';
-    helpDiv.style.position = 'absolute';
-    helpDiv.style.bottom = '10px';
-    helpDiv.style.right = '10px';
-    helpDiv.style.background = 'rgba(255,255,255,0.7)';
-    helpDiv.style.padding = '10px';
-    helpDiv.style.borderRadius = '5px';
-    helpDiv.style.zIndex = '100';
-    helpDiv.style.fontSize = '14px';
-    helpDiv.innerHTML = `
-        <h5>Keyboard Controls</h5>
-        <ul style="padding-left: 20px; margin-bottom: 5px;">
-            <li>W/S: Move forward/backward</li>
-            <li>A/D: Move left/right</li>
-            <li>Q/E: Move up/down</li>
-            <li>+/-: Zoom in/out</li>
-            <li>R: Reset view</li>
-            <li>K: Toggle keyboard controls</li>
-        </ul>
-    `;
-    document.body.appendChild(helpDiv);
-    
-    window.addEventListener('keydown', handleKeyDown);
-    console.log('Keyboard controls setup complete');
-}
-
-// Handle keyboard input (unchanged)
-function handleKeyDown(event) {
-    if (!keyboardControls.enabled) return;
-    const key = event.key.toLowerCase();
-    switch (key) {
-        case 'w': camera.position.z -= KEYBOARD_MOVE_SPEED; break;
-        case 's': camera.position.z += KEYBOARD_MOVE_SPEED; break;
-        case 'a': camera.position.x -= KEYBOARD_MOVE_SPEED; break;
-        case 'd': camera.position.x += KEYBOARD_MOVE_SPEED; break;
-        case 'q': camera.position.y += KEYBOARD_MOVE_SPEED; break;
-        case 'e': camera.position.y -= KEYBOARD_MOVE_SPEED; break;
-        case '+': case '=': camera.position.z -= KEYBOARD_ZOOM_SPEED; break;
-        case '-': case '_': camera.position.z += KEYBOARD_ZOOM_SPEED; break;
-        case 'r': resetCamera(); break;
-        case 'k': toggleKeyboardControls(); break;
-    }
-    if (controls.target) controls.update();
-}
-
-// Reset camera
-function resetCamera() {
-    camera.position.set(0, 0, 1000);
-    if (controls.target) {
-        controls.target.set(0, 0, 0);
-        controls.update();
-    }
-    console.log('Camera reset to initial position');
-}
-
-// Toggle keyboard controls (unchanged)
-function toggleKeyboardControls() {
-    keyboardControls.enabled = !keyboardControls.enabled;
-    const status = keyboardControls.enabled ? 'enabled' : 'disabled';
-    const notification = document.createElement('div');
-    notification.style.position = 'absolute';
-    notification.style.top = '50%';
-    notification.style.left = '50%';
-    notification.style.transform = 'translate(-50%, -50%)';
-    notification.style.background = 'rgba(0,0,0,0.7)';
-    notification.style.color = 'white';
-    notification.style.padding = '15px';
-    notification.style.borderRadius = '5px';
-    notification.style.zIndex = '1000';
-    notification.style.pointerEvents = 'none';
-    notification.textContent = `Keyboard controls ${status}`;
-    document.body.appendChild(notification);
-    setTimeout(() => document.body.removeChild(notification), 2000);
-    console.log(`Keyboard controls ${status}`);
-}
-
-// Interaction setup (unchanged)
-function setupInteraction() {
-    raycaster = new THREE.Raycaster();
-    mouse = new THREE.Vector2();
-    renderer.domElement.addEventListener('mousemove', onMouseMove, false);
-    renderer.domElement.addEventListener('click', onMouseClick, false);
-    console.log('Interaction setup complete');
-}
-
-// Window resize handler (unchanged)
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-}
-
-// Mouse movement handler (unchanged)
-function onMouseMove(event) {
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-    tooltipDiv.style.left = event.clientX + 10 + 'px';
-    tooltipDiv.style.top = event.clientY + 10 + 'px';
-    checkIntersections();
-}
-
-// Mouse click handler (unchanged)
-function onMouseClick(event) {
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(scene.children, true);
-    if (intersects.length > 0) {
-        const object = intersects[0].object;
-        if (object.userData && object.userData.id) {
-            const nodeId = object.userData.id;
-            if (object.userData.type === 'topic' && object.userData.hasProblems) {
-                window.location.href = `/topic/${nodeId}`;
-            } else if (object.userData.type === 'problem') {
-                window.location.href = `/problem/${object.userData.filename}`;
-            }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AP Statistics Knowledge Tree</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        .tooltip {
+            position: absolute;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border-radius: 5px;
+            pointer-events: none;
+            z-index: 999;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
         }
-    }
-}
-
-// Intersection checking (unchanged)
-function checkIntersections() {
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(scene.children, true);
-    if (intersects.length > 0) {
-        const object = intersects[0].object;
-        if (object.userData && object.userData.id) {
-            highlightImmediatePath(object);
-            tooltipDiv.innerHTML = object.userData.tooltip;
-            tooltipDiv.style.visibility = 'visible';
+        .keyboard-controls-help {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+            font-size: 14px;
         }
-    } else {
-        highlightedObjects.forEach(obj => {
-            if (obj.userData.type) {
-                obj.material.color.setHex(obj.userData.isActive ? ACTIVE_BRANCH_COLOR : INACTIVE_BRANCH_COLOR);
-            } else {
-                obj.material.color.setHex(obj.userData.isActive ? ACTIVE_BRANCH_COLOR : INACTIVE_BRANCH_COLOR);
-            }
-        });
-        highlightedObjects = [];
-        tooltipDiv.style.visibility = 'hidden';
-    }
-}
+    </style>
+</head>
+<body>
+    <div id="tree-container"></div>
 
-// Highlight path (unchanged)
-function highlightImmediatePath(node) {
-    highlightedObjects.forEach(obj => {
-        if (obj.userData.type) {
-            obj.material.color.setHex(obj.userData.isActive ? ACTIVE_BRANCH_COLOR : INACTIVE_BRANCH_COLOR);
-        } else {
-            obj.material.color.setHex(obj.userData.isActive ? ACTIVE_BRANCH_COLOR : INACTIVE_BRANCH_COLOR);
-        }
-    });
-    highlightedObjects = [];
-    node.material.color.setHex(HIGHLIGHT_COLOR);
-    highlightedObjects.push(node);
-    if (node.userData.parent) {
-        const parent = node.userData.parent;
-        const branch = node.userData.incomingBranch;
-        if (branch) {
-            branch.material.color.setHex(HIGHLIGHT_COLOR);
-            highlightedObjects.push(branch);
-        }
-        parent.material.color.setHex(HIGHLIGHT_COLOR);
-        highlightedObjects.push(parent);
-    }
-}
+    <!-- Load Three.js and its controls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/DragControls.js"></script>
 
-// Load data (unchanged)
-function loadKnowledgeTreeData() {
-    console.log('Loading knowledge tree data...');
-    fetch('/api/knowledge_tree_data')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`API request failed with status ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Data loaded successfully:', data);
-            buildTree(data);
-        })
-        .catch(error => {
-            console.error('Error loading knowledge tree data:', error);
+    <script>
+        // AP Statistics Knowledge Tree 3D Visualization
+
+        // Global variables
+        let scene, camera, renderer, controls;
+        let treeRoot, nodeMap = {};
+        let raycaster, mouse;
+        let tooltipDiv;
+        let highlightedObjects = [];
+        let allNodes = [];
+        let springs = [];
+        let branches = [];
+        let uncategorizedNodes = [];
+        let clock;
+        let dragControls;
+        let keyboardControls = { enabled: true };
+
+        // Constants
+        const NODE_SIZE = 5;
+        const LEVEL_HEIGHT = 100;
+        const SIBLING_SPREAD = 80;
+        const BRANCH_COLOR = 0x555555;
+        const ACTIVE_BRANCH_COLOR = 0x00aa00;
+        const INACTIVE_BRANCH_COLOR = 0xaaaaaa;
+        const HIGHLIGHT_COLOR = 0xff9900;
+        const SPRING_CONSTANT = 0.1;
+        const DAMPING = 0.99;
+        const KEYBOARD_MOVE_SPEED = 10;
+        const KEYBOARD_ZOOM_SPEED = 50;
+        const UNIT_HEIGHT_MIN = -400;
+        const UNIT_HEIGHT_MAX = 400;
+        const Z_DEPTH_ROOT = -300;
+        const Z_DEPTH_UNITS = -200;
+        const Z_DEPTH_TOPICS = -100;
+        const Z_DEPTH_PROBLEMS = 0;
+
+        // Initialize the visualization
+        function init() {
+            console.log('Initializing 3D Knowledge Tree...');
+            createTooltip();
+            setupScene();
+            setupInteraction();
+            setupKeyboardControls();
+            loadKnowledgeTreeData();
+            animate();
+        }
+
+        // Create tooltip div
+        function createTooltip() {
+            tooltipDiv = document.createElement('div');
+            tooltipDiv.className = 'tooltip';
+            tooltipDiv.style.visibility = 'hidden';
+            document.body.appendChild(tooltipDiv);
+            console.log('Tooltip created');
+        }
+
+        // Set up scene, camera, renderer, and controls
+        function setupScene() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf0f0f0);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 5000);
+            camera.position.set(0, 0, 500);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
             const container = document.getElementById('tree-container');
-            if (container) {
-                const errorMsg = document.createElement('div');
-                errorMsg.style.position = 'absolute';
-                errorMsg.style.top = '50%';
-                errorMsg.style.left = '50%';
-                errorMsg.style.transform = 'translate(-50%, -50%)';
-                errorMsg.style.background = 'rgba(255,0,0,0.7)';
-                errorMsg.style.color = 'white';
-                errorMsg.style.padding = '20px';
-                errorMsg.style.borderRadius = '5px';
-                errorMsg.innerHTML = `<h3>Error Loading Data</h3><p>${error.message}</p>`;
-                container.appendChild(errorMsg);
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.target.set(0, 0, -150);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.25;
+
+            const ambientLight = new THREE.AmbientLight(0xcccccc, 0.5);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(1, 1, 1).normalize();
+            scene.add(directionalLight);
+
+            const pointLight = new THREE.PointLight(0xffffff, 1, 1000);
+            pointLight.position.set(0, 0, 200);
+            scene.add(pointLight);
+
+            window.addEventListener('resize', onWindowResize, false);
+            console.log('Scene setup complete');
+        }
+
+        // Set up keyboard controls
+        function setupKeyboardControls() {
+            const helpDiv = document.createElement('div');
+            helpDiv.className = 'keyboard-controls-help';
+            helpDiv.innerHTML = `
+                <h5>Keyboard Controls</h5>
+                <ul style="padding-left: 20px; margin-bottom: 5px;">
+                    <li>W/S: Move forward/backward</li>
+                    <li>A/D: Move left/right</li>
+                    <li>Q/E: Move up/down</li>
+                    <li>+/-: Zoom in/out</li>
+                    <li>R: Reset view</li>
+                    <li>K: Toggle controls</li>
+                </ul>
+            `;
+            document.body.appendChild(helpDiv);
+
+            window.addEventListener('keydown', handleKeyDown);
+            console.log('Keyboard controls setup complete');
+        }
+
+        // Handle keyboard input
+        function handleKeyDown(event) {
+            if (!keyboardControls.enabled) return;
+            const key = event.key.toLowerCase();
+            switch (key) {
+                case 'w': camera.position.z -= KEYBOARD_MOVE_SPEED; break;
+                case 's': camera.position.z += KEYBOARD_MOVE_SPEED; break;
+                case 'a': camera.position.x -= KEYBOARD_MOVE_SPEED; break;
+                case 'd': camera.position.x += KEYBOARD_MOVE_SPEED; break;
+                case 'q': camera.position.y += KEYBOARD_MOVE_SPEED; break;
+                case 'e': camera.position.y -= KEYBOARD_MOVE_SPEED; break;
+                case '+':
+                case '=': camera.position.z -= KEYBOARD_ZOOM_SPEED; break;
+                case '-':
+                case '_': camera.position.z += KEYBOARD_ZOOM_SPEED; break;
+                case 'r': resetCamera(); break;
+                case 'k': toggleKeyboardControls(); break;
             }
-        });
-}
+            controls.update();
+        }
 
-// Build the 3D tree with varying heights
-function buildTree(data) {
-    console.log('Building tree from data...');
-    treeRoot = createNode({
-        id: 'root',
-        name: 'AP Statistics',
-        type: 'root',
-        hasProblems: false,
-        tooltip: '<b>AP Statistics Curriculum</b>'
-    }, 0);
-    treeRoot.position.set(0, 0, 0);
-    scene.add(treeRoot);
-    allNodes.push(treeRoot);
-    
-    const units = data.units;
-    if (!units || units.length === 0) {
-        console.error('No units found in data');
-        return;
-    }
-    
-    console.log(`Building tree with ${units.length} units`);
-    const numUnits = units.length;
-    const unitHeightStep = numUnits > 1 ? (UNIT_HEIGHT_MAX - UNIT_HEIGHT_MIN) / (numUnits - 1) : 0;
-    const unitSpread = numUnits * SIBLING_SPREAD / 2;
-    
-    // Count total topics for height zone distribution
-    const totalTopics = units.reduce((sum, unit) => sum + unit.topics.length, 0);
-    const topicHeightRange = LEVEL_HEIGHT * 0.8; // Use 80% of LEVEL_HEIGHT per unit for topics
-    
-    units.forEach((unit, unitIndex) => {
-        const unitY = UNIT_HEIGHT_MIN + unitIndex * unitHeightStep;
-        const unitX = (unitIndex * SIBLING_SPREAD) - unitSpread;
-        
-        const numProblems = unit.topics.reduce((sum, topic) => sum + (topic.problems ? topic.problems.length : 0), 0);
-        const unitNode = createNode({
-            id: unit.unit_id,
-            name: `Unit ${unit.unit_number}: ${unit.unit_name}`,
-            type: 'unit',
-            hasProblems: unit.has_problems,
-            tooltip: `<b>Unit ${unit.unit_number}:</b> ${unit.unit_name}<br>Topics: ${unit.topics.length}<br>Problems: ${numProblems}`
-        }, 1);
-        unitNode.position.set(unitX, unitY, 0);
-        scene.add(unitNode);
-        allNodes.push(unitNode);
-        
-        const branch = createBranch(treeRoot, unitNode, unit.has_problems);
-        branches.push(branch);
-        const restLength = treeRoot.position.distanceTo(unitNode.position);
-        springs.push({nodeA: treeRoot, nodeB: unitNode, restLength});
-        
-        const topics = unit.topics;
-        const topicSpread = topics.length * SIBLING_SPREAD / 2;
-        const numTopics = topics.length;
-        const topicSpacing = numTopics > 1 ? topicHeightRange / (numTopics - 1) : 0;
-        const topicBaseY = unitY - LEVEL_HEIGHT / 2; // Center topics below unit
-        
-        topics.forEach((topic, topicIndex) => {
-            const topicX = unitX + ((topicIndex * SIBLING_SPREAD) - topicSpread);
-            const topicY = topicBaseY - (numTopics - 1) * topicSpacing / 2 + topicIndex * topicSpacing;
-            
-            const topicNode = createNode({
-                id: topic.topic_id,
-                name: `${topic.topic_number} ${topic.topic_name}`,
-                type: 'topic',
-                hasProblems: topic.has_problems,
-                tooltip: `<b>Topic ${topic.topic_number}:</b> ${topic.topic_name}<br><b>Unit:</b> ${unit.unit_number} - ${unit.unit_name}`
-            }, 2);
-            topicNode.position.set(topicX, topicY, 0);
-            scene.add(topicNode);
-            allNodes.push(topicNode);
-            
-            const branch = createBranch(unitNode, topicNode, topic.has_problems);
-            branches.push(branch);
-            const restLength = unitNode.position.distanceTo(topicNode.position);
-            springs.push({nodeA: unitNode, nodeB: topicNode, restLength});
-            
-            if (topic.has_problems && topic.problems) {
-                const problems = topic.problems;
-                const problemSpread = problems.length * SIBLING_SPREAD / 2;
-                const problemY = topicY - LEVEL_HEIGHT / 2; // Place problems below topic
-                
-                problems.forEach((problem, problemIndex) => {
-                    const problemX = topicX + ((problemIndex * SIBLING_SPREAD) - problemSpread);
-                    const problemNode = createProblemNode({
-                        id: problem.problem_id,
-                        name: problem.display_name,
-                        type: 'problem',
-                        filename: problem.filename,
-                        tooltip: `<b>${problem.display_name}</b><br><b>Topic:</b> ${topic.topic_number} - ${topic.topic_name}`
-                    });
-                    problemNode.position.set(problemX, problemY, 0);
-                    scene.add(problemNode);
-                    allNodes.push(problemNode);
-                    
-                    const branch = createBranch(topicNode, problemNode, true);
-                    branches.push(branch);
-                    const restLength = topicNode.position.distanceTo(problemNode.position);
-                    springs.push({nodeA: topicNode, nodeB: problemNode, restLength});
-                });
+        // Reset camera position
+        function resetCamera() {
+            camera.position.set(0, 0, 500);
+            controls.target.set(0, 0, -150);
+            controls.update();
+            console.log('Camera reset');
+        }
+
+        // Toggle keyboard controls
+        function toggleKeyboardControls() {
+            keyboardControls.enabled = !keyboardControls.enabled;
+            const status = keyboardControls.enabled ? 'enabled' : 'disabled';
+            const notification = document.createElement('div');
+            notification.style.position = 'absolute';
+            notification.style.top = '50%';
+            notification.style.left = '50%';
+            notification.style.transform = 'translate(-50%, -50%)';
+            notification.style.background = 'rgba(0,0,0,0.7)';
+            notification.style.color = 'white';
+            notification.style.padding = '15px';
+            notification.style.borderRadius = '5px';
+            notification.style.zIndex = '1000';
+            notification.style.pointerEvents = 'none';
+            notification.textContent = `Keyboard controls ${status}`;
+            document.body.appendChild(notification);
+            setTimeout(() => document.body.removeChild(notification), 2000);
+            console.log(`Keyboard controls ${status}`);
+        }
+
+        // Set up interaction
+        function setupInteraction() {
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            renderer.domElement.addEventListener('mousemove', onMouseMove, false);
+            renderer.domElement.addEventListener('click', onMouseClick, false);
+            console.log('Interaction setup complete');
+        }
+
+        // Handle window resize
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Handle mouse movement
+        function onMouseMove(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            tooltipDiv.style.left = event.clientX + 10 + 'px';
+            tooltipDiv.style.top = event.clientY + 10 + 'px';
+            checkIntersections();
+        }
+
+        // Handle mouse clicks
+        function onMouseClick(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+            if (intersects.length > 0) {
+                const object = intersects[0].object;
+                if (object.userData && object.userData.id) {
+                    const nodeId = object.userData.id;
+                    if (object.userData.type === 'topic' && object.userData.hasProblems) {
+                        window.location.href = `/topic/${nodeId}`;
+                    } else if (object.userData.type === 'problem') {
+                        window.location.href = `/problem/${object.userData.filename}`;
+                    }
+                }
             }
-        });
-    });
-    
-    // Uncategorized problems
-    if (data.uncategorized_problems) {
-        data.uncategorized_problems.forEach(problem => {
-            const problemNode = createProblemNode({
-                id: problem.problem_id,
-                name: problem.display_name,
-                type: 'problem',
-                filename: problem.filename,
-                tooltip: `<b>${problem.display_name}</b> (Uncategorized)`
-            });
-            problemNode.position.set(
-                (Math.random() - 0.5) * 1000,
-                (Math.random() - 0.5) * 1000,
-                (Math.random() - 0.5) * 1000
-            );
-            scene.add(problemNode);
-            allNodes.push(problemNode);
-            uncategorizedNodes.push(problemNode);
-        });
-    }
-    
-    // DragControls
-    if (typeof THREE.DragControls !== 'undefined') {
-        dragControls = new THREE.DragControls(allNodes, camera, renderer.domElement);
-        dragControls.addEventListener('dragstart', function(event) {
-            event.object.userData.isDragging = true;
-        });
-        dragControls.addEventListener('dragend', function(event) {
-            event.object.userData.isDragging = false;
-            event.object.userData.velocity.set(0, 0, 0);
-        });
-    } else {
-        console.warn('THREE.DragControls is not defined.');
-    }
-    
-    clock = new THREE.Clock();
-    controls.target.set(0, 0, 0);
-    controls.update();
-    
-    console.log('Tree building complete. Scene has', scene.children.length, 'objects');
-}
-
-// Create node (unchanged)
-function createNode(data, level) {
-    const geometry = new THREE.SphereGeometry(NODE_SIZE - level, 32, 32);
-    const material = new THREE.MeshLambertMaterial({
-        color: data.hasProblems ? ACTIVE_BRANCH_COLOR : INACTIVE_BRANCH_COLOR
-    });
-    const node = new THREE.Mesh(geometry, material);
-    node.userData = data;
-    node.userData.isActive = data.hasProblems;
-    node.userData.velocity = new THREE.Vector3(0, 0, 0);
-    node.userData.mass = 1;
-    node.userData.isDragging = false;
-    nodeMap[data.id] = node;
-    return node;
-}
-
-// Create problem node (unchanged)
-function createProblemNode(data) {
-    const geometry = new THREE.PlaneGeometry(NODE_SIZE * 3, NODE_SIZE * 3);
-    const textureLoader = new THREE.TextureLoader();
-    const fallbackMaterial = new THREE.MeshBasicMaterial({
-        color: 0x3366cc,
-        side: THREE.DoubleSide
-    });
-    const node = new THREE.Mesh(geometry, fallbackMaterial);
-    textureLoader.load(
-        `/images/${data.filename}`,
-        function(texture) {
-            node.material = new THREE.MeshBasicMaterial({
-                map: texture,
-                side: THREE.DoubleSide
-            });
-        },
-        undefined,
-        function(error) {
-            console.warn(`Failed to load texture for ${data.filename}:`, error);
         }
-    );
-    node.userData = data;
-    node.userData.isActive = true;
-    node.userData.velocity = new THREE.Vector3(0, 0, 0);
-    node.userData.mass = 1;
-    node.userData.isDragging = false;
-    nodeMap[data.id] = node;
-    return node;
-}
 
-// Create branch (unchanged)
-function createBranch(parentNode, childNode, isActive) {
-    const material = new THREE.LineBasicMaterial({
-        color: isActive ? ACTIVE_BRANCH_COLOR : INACTIVE_BRANCH_COLOR,
-        linewidth: isActive ? 2 : 1
-    });
-    const geometry = new THREE.BufferGeometry().setFromPoints([
-        parentNode.position,
-        childNode.position
-    ]);
-    const line = new THREE.Line(geometry, material);
-    line.userData.parentNode = parentNode;
-    line.userData.childNode = childNode;
-    line.userData.isActive = isActive;
-    scene.add(line);
-    childNode.userData.parent = parentNode;
-    childNode.userData.incomingBranch = line;
-    return line;
-}
-
-// Animation loop (unchanged)
-function animate() {
-    requestAnimationFrame(animate);
-    if (!window.animationStarted) {
-        console.log('Animation loop started');
-        window.animationStarted = true;
-    }
-    const deltaTime = clock ? clock.getDelta() : 0.016;
-    allNodes.forEach(node => {
-        node.userData.totalForce = new THREE.Vector3(0, 0, 0);
-    });
-    springs.forEach(spring => {
-        const nodeA = spring.nodeA;
-        const nodeB = spring.nodeB;
-        const currentLength = nodeA.position.distanceTo(nodeB.position);
-        if (currentLength > 0) {
-            const displacement = currentLength - spring.restLength;
-            const forceMagnitude = SPRING_CONSTANT * displacement;
-            const direction = new THREE.Vector3().subVectors(nodeB.position, nodeA.position).normalize();
-            const force = direction.multiplyScalar(forceMagnitude);
-            nodeA.userData.totalForce.add(force);
-            nodeB.userData.totalForce.sub(force);
+        // Check intersections for hover
+        function checkIntersections() {
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+            if (intersects.length > 0) {
+                const object = intersects[0].object;
+                if (object.userData && object.userData.id) {
+                    highlightImmediatePath(object);
+                    tooltipDiv.innerHTML = object.userData.tooltip;
+                    tooltipDiv.style.visibility = 'visible';
+                }
+            } else {
+                resetHighlights();
+                tooltipDiv.style.visibility = 'hidden';
+            }
         }
-    });
-    uncategorizedNodes.forEach(node => {
-        const randomForce = new THREE.Vector3(
-            (Math.random() - 0.5) * 0.2,
-            (Math.random() - 0.5) * 0.2,
-            (Math.random() - 0.5) * 0.2
-        );
-        node.userData.totalForce.add(randomForce);
-    });
-    allNodes.forEach(node => {
-        if (!node.userData.isDragging) {
-            const acceleration = node.userData.totalForce.clone().divideScalar(node.userData.mass);
-            node.userData.velocity.add(acceleration.multiplyScalar(deltaTime));
-            node.userData.velocity.multiplyScalar(DAMPING);
-            node.position.add(node.userData.velocity.clone().multiplyScalar(deltaTime));
-        }
-    });
-    branches.forEach(branch => {
-        const nodeA = branch.userData.parentNode;
-        const nodeB = branch.userData.childNode;
-        const positions = branch.geometry.attributes.position.array;
-        positions[0] = nodeA.position.x;
-        positions[1] = nodeA.position.y;
-        positions[2] = nodeA.position.z;
-        positions[3] = nodeB.position.x;
-        positions[4] = nodeB.position.y;
-        positions[5] = nodeB.position.z;
-        branch.geometry.attributes.position.needsUpdate = true;
-    });
-    controls.update();
-    renderer.render(scene, camera);
-}
 
-// Initialize on DOM ready
-document.addEventListener('DOMContentLoaded', init);
+        // Highlight node and its immediate path
+        function highlightImmediatePath(node) {
+            resetHighlights();
+            node.material.color.setHex(HIGHLIGHT_COLOR);
+            highlightedObjects.push(node);
+            if (node.userData.parent) {
+                const parent = node.userData.parent;
+                const branch = node.userData.incomingBranch;
+                if (branch) {
+                    branch.material.color.setHex(HIGHLIGHT_COLOR);
+                    highlightedObjects.push(branch);
+                }
+                parent.material.color.setHex(HIGHLIGHT_COLOR);
+                highlightedObjects.push(parent);
+            }
+        }
+
+        // Reset highlights
+        function resetHighlights() {
+            highlightedObjects.forEach(obj => {
+                if (obj.userData.type) {
+                    obj.material.color.setHex(obj.userData.isActive ? ACTIVE_BRANCH_COLOR : INACTIVE_BRANCH
