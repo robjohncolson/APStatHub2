@@ -838,25 +838,50 @@ def remove_problem_topic():
             year = year_match.group(1)
             frq_num = num_match.group(1)
             
-            # Find all parts of this FRQ
-            part_pattern = f"{year}.*(?:FRQ|Frq){frq_num}"
-            group_parts = conn.execute('''
-                SELECT * FROM problems 
-                WHERE problem_number LIKE ?
-                ORDER BY problem_number
-            ''', (f"%{part_pattern}%",)).fetchall()
+            # Find all parts of this FRQ using the same approach as in reapply_topics
+            all_problems = conn.execute('SELECT * FROM problems').fetchall()
+            group_parts = []
+            
+            for p in all_problems:
+                if 'FRQ' in p['problem_number'] or 'Frq' in p['problem_number']:
+                    p_year_match = re.search(r'(\d{4})', p['problem_number'])
+                    p_num_match = re.search(r'(?:FRQ|Frq)(\d+)', p['problem_number'])
+                    
+                    if p_year_match and p_num_match:
+                        p_year = p_year_match.group(1)
+                        p_frq_num = p_num_match.group(1)
+                        
+                        if p_year == year and p_frq_num == frq_num:
+                            group_parts.append(p)
+            
+            # Debug log
+            part_numbers = [p['problem_number'] for p in group_parts]
+            debug_msg = f"Found {len(group_parts)} total parts for FRQ #{frq_num}: {part_numbers}"
+            print(debug_msg)
+            flash(debug_msg)
     
     # If removing from a group, remove the topic from all parts
     if remove_from_group and group_parts:
+        topics_removed = 0
         for part in group_parts:
-            conn.execute('''
-                DELETE FROM problem_topics 
+            # Check if the relationship exists before trying to delete
+            existing = conn.execute('''
+                SELECT * FROM problem_topics 
                 WHERE problem_id = ? AND topic_id = ?
-            ''', (part['problem_id'], topic_id))
+            ''', (part['problem_id'], topic_id)).fetchone()
+            
+            if existing:
+                conn.execute('''
+                    DELETE FROM problem_topics 
+                    WHERE problem_id = ? AND topic_id = ?
+                ''', (part['problem_id'], topic_id))
+                topics_removed += 1
+                flash(f"Removed topic from part {part['problem_number']}")
         
         conn.commit()
-        flash(f'Topic removed from all parts of FRQ #{num_match.group(1)} successfully!')
+        flash(f'Topic removed from all parts of FRQ #{num_match.group(1)} successfully! ({topics_removed} topic relationships removed)')
     else:
+        # Just remove from the current problem
         conn.execute('''
             DELETE FROM problem_topics 
             WHERE problem_id = ? AND topic_id = ?
@@ -866,6 +891,10 @@ def remove_problem_topic():
         flash('Topic removed from problem successfully!')
     
     conn.close()
+    
+    # Clear any cached data in the session that might affect display
+    if 'problem_data_cache' in session:
+        session.pop('problem_data_cache')
     
     return redirect(url_for('problem_detail', filename=problem['problem_number']))
 
