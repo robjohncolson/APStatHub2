@@ -29,6 +29,14 @@
                 {% if is_frq and group_id %}
                 <div class="alert alert-info">
                     <strong>Note:</strong> This is part of a Free Response Question group. Topic assignments can be applied to all parts of this FRQ.
+                    {% if topics %}
+                    <form method="post" action="{{ url_for('reapply_topics') }}" class="mt-2">
+                        <input type="hidden" name="problem_id" value="{{ problem.problem_id }}">
+                        <button type="submit" class="btn btn-warning">
+                            <i class="bi bi-arrow-repeat"></i> Reapply Topics to All Parts
+                        </button>
+                    </form>
+                    {% endif %}
                 </div>
                 {% endif %}
                 

@@ -113,7 +113,7 @@ def process_image_file(file, unit_number, problem_metadata, image_files):
     # Use stored description if available
     description = stored_metadata.get('description', f"Problem from {year} AP Statistics Exam")
     
-    # Create display name using stored values if available
+    # Create display name using stored values
     display_name = f"{year} {problem_type} #{problem_num}" + (f" (Part {part_num})" if part_match else "")
     
     image_files.append({
@@ -214,7 +214,7 @@ def index():
     # Get all unit directories for the filter dropdown
     unit_dirs = [d for d in os.listdir('AP_Statistics_Course') 
                 if os.path.isdir(os.path.join('AP_Statistics_Course', d)) and d.startswith('Unit')]
-    unit_dirs.sort(key=lambda x: int(re.search(r'Unit (\d+)', x).group(1)) if re.search(r'Unit (\d+)', x) else 999)
+    unit_dirs.sort(key=lambda x: int(re.search(r'Unit (\d+)', x).group(1)))
     
     conn.close()
     
@@ -617,18 +617,18 @@ def add_problem_topic():
             year = year_match.group(1)
             frq_num = num_match.group(1)
             
-            # Improved pattern matching for finding all parts of this FRQ
-            # This will match patterns like "2019_AP_FRQ1-1.png", "2019_AP_FRQ1-2.png", etc.
-            part_pattern = f"{year}%(?:FRQ|Frq){frq_num}%"
+            # Find all parts of this FRQ
+            part_pattern = f"{year}.*(?:FRQ|Frq){frq_num}"
             
             # Log the pattern for debugging
             print(f"Searching for FRQ parts with pattern: {part_pattern}")
             
+            # Get ALL parts including the current one
             group_parts = conn.execute('''
                 SELECT * FROM problems 
                 WHERE problem_number LIKE ?
                 ORDER BY problem_number
-            ''', (part_pattern,)).fetchall()
+            ''', (f"%{part_pattern}%",)).fetchall()
             
             # Log the number of parts found for debugging
             print(f"Found {len(group_parts)} parts for FRQ #{frq_num}")
@@ -668,6 +668,140 @@ def add_problem_topic():
             
             conn.commit()
             flash('Topic added to problem successfully!')
+    
+    conn.close()
+    
+    # Clear any cached data in the session that might affect display
+    if 'problem_data_cache' in session:
+        session.pop('problem_data_cache')
+    
+    return redirect(url_for('problem_detail', filename=problem['problem_number'], _=time.time()))
+
+@app.route('/reapply_topics', methods=['POST'])
+def reapply_topics():
+    """Reapply all topics from one part to all parts of an FRQ."""
+    problem_id = request.form['problem_id']
+    
+    # Add debug info to flash messages so we can see it in the UI
+    conn = get_db_connection()
+    
+    # Check the structure of the problem_topics table
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA table_info(problem_topics)")
+    columns = [column[1] for column in cursor.fetchall()]
+    flash(f"problem_topics columns: {columns}")
+    
+    # Get the problem to check if it's part of a group
+    problem = conn.execute('SELECT * FROM problems WHERE problem_id = ?', (problem_id,)).fetchone()
+    
+    if not problem:
+        flash('Problem not found!')
+        return redirect(url_for('index'))
+    
+    # Check if this is part of an FRQ group
+    if 'FRQ' in problem['problem_number'] or 'Frq' in problem['problem_number']:
+        # Extract year and FRQ number
+        year_match = re.search(r'(\d{4})', problem['problem_number'])
+        num_match = re.search(r'(?:FRQ|Frq)(\d+)', problem['problem_number'])
+        
+        if year_match and num_match:
+            year = year_match.group(1)
+            frq_num = num_match.group(1)
+            
+            # Show the current problem details
+            flash(f"Current problem: {problem['problem_number']} (ID: {problem['problem_id']})")
+            
+            # Try a different approach - extract the FRQ number and find all problems with the same FRQ number
+            # This is more reliable than pattern matching
+            all_problems = conn.execute('SELECT * FROM problems').fetchall()
+            all_parts = []
+            
+            for p in all_problems:
+                if 'FRQ' in p['problem_number'] or 'Frq' in p['problem_number']:
+                    p_year_match = re.search(r'(\d{4})', p['problem_number'])
+                    p_num_match = re.search(r'(?:FRQ|Frq)(\d+)', p['problem_number'])
+                    
+                    if p_year_match and p_num_match:
+                        p_year = p_year_match.group(1)
+                        p_frq_num = p_num_match.group(1)
+                        
+                        if p_year == year and p_frq_num == frq_num:
+                            all_parts.append(p)
+            
+            # Debug log
+            part_numbers = [p['problem_number'] for p in all_parts]
+            debug_msg = f"Found {len(all_parts)} total parts for FRQ #{frq_num}: {part_numbers}"
+            print(debug_msg)
+            flash(debug_msg)
+            
+            # Get all topics for the current part - just get the raw topic_id, relevance_score, and notes
+            topics = conn.execute('''
+                SELECT * FROM problem_topics 
+                WHERE problem_id = ?
+            ''', (problem_id,)).fetchall()
+            
+            # Convert SQLite Row objects to dictionaries
+            topics_dict = []
+            for topic in topics:
+                topic_dict = {}
+                for key in topic.keys():
+                    topic_dict[key] = topic[key]
+                topics_dict.append(topic_dict)
+            
+            # Debug log
+            topic_ids = [t['topic_id'] for t in topics_dict]
+            debug_msg = f"Found {len(topics_dict)} topics to apply: {topic_ids}"
+            print(debug_msg)
+            flash(debug_msg)
+            
+            # Show the first topic's structure if available
+            if topics_dict:
+                flash(f"First topic structure: {topics_dict[0]}")
+            
+            # Apply each topic to all parts
+            topics_applied = 0
+            topics_skipped = 0
+            
+            # For each part (except the current one)
+            for part in all_parts:
+                if part['problem_id'] == problem_id:
+                    flash(f"Skipping current part {part['problem_number']} (ID: {part['problem_id']})")
+                    continue
+                
+                flash(f"Checking part {part['problem_number']} (ID: {part['problem_id']})")
+                
+                # For each topic to apply
+                for topic in topics_dict:
+                    # Check if relationship already exists
+                    existing = conn.execute('''
+                        SELECT * FROM problem_topics 
+                        WHERE problem_id = ? AND topic_id = ?
+                    ''', (part['problem_id'], topic['topic_id'])).fetchone()
+                    
+                    if existing:
+                        topics_skipped += 1
+                        flash(f"Topic {topic['topic_id']} already exists for part {part['problem_number']} - skipping")
+                    else:
+                        try:
+                            # Use direct values from the dictionary
+                            conn.execute('''
+                                INSERT INTO problem_topics (problem_id, topic_id, relevance_score, notes)
+                                VALUES (?, ?, ?, ?)
+                            ''', (
+                                part['problem_id'], 
+                                topic['topic_id'], 
+                                topic['relevance_score'],
+                                topic['notes']
+                            ))
+                            topics_applied += 1
+                            flash(f"Added topic {topic['topic_id']} to part {part['problem_number']}")
+                        except Exception as e:
+                            flash(f"Error adding topic: {str(e)}")
+            
+            conn.commit()
+            flash(f'Topics reapplied to all parts of FRQ #{frq_num} successfully! ({topics_applied} topic assignments added, {topics_skipped} skipped)')
+    else:
+        flash('This is not part of an FRQ group!')
     
     conn.close()
     
@@ -1106,6 +1240,14 @@ if __name__ == '__main__':
                 {% if is_frq and group_id %}
                 <div class="alert alert-info">
                     <strong>Note:</strong> This is part of a Free Response Question group. Topic assignments can be applied to all parts of this FRQ.
+                    {% if topics %}
+                    <form method="post" action="{{ url_for('reapply_topics') }}" class="mt-2">
+                        <input type="hidden" name="problem_id" value="{{ problem.problem_id }}">
+                        <button type="submit" class="btn btn-warning">
+                            <i class="bi bi-arrow-repeat"></i> Reapply Topics to All Parts
+                        </button>
+                    </form>
+                    {% endif %}
                 </div>
                 {% endif %}
                 
